@@ -1,108 +1,73 @@
-# Ragnar's Agentic OS V2 — "The Scaffold"
+# Ragnar's Agentic OS — V3 "The Hermes Update"
 
-Two ready-to-use versions of RAOS V2:
+One file. Each teammate builds their OWN named Agentic OS. Their terminal becomes an objective-oriented AI workspace — with durable runs, crash recovery, an independent evaluator, and optional headless scheduling.
 
-| Folder | Runtime | Who it's for |
-|--------|---------|-------------|
-| `Ragnar-AOS-V2-Claude/` | Claude Code CLI | Ragnar (creator) |
-| `Ragnar-AOS-V2-GitHub/` | GitHub Copilot CLI | Microsoft team |
+## Get Started
 
-## Quick Start
+| Folder | Runtime | Install Guide |
+|--------|---------|---------------|
+| `Ragnar-AOS-V3-Claude/` | Claude Code CLI | [Install-guide.md](Ragnar-AOS-V3-Claude/Install-guide.md) |
+| `Ragnar-AOS-V3-GitHub/` | GitHub Copilot CLI | [Install-guide.md](Ragnar-AOS-V3-GitHub/Install-guide.md) |
 
-Pick the folder matching your CLI, then follow the `QUICKSTART.md` inside.
+Pick the folder matching your CLI and follow the Install Guide.
 
-## Dashboard
+## What V3 includes
 
-Both versions include a local web dashboard (`dashboard/server.py`) for onboarding and live task monitoring:
+### The Scaffold (from V2)
 
-```bash
-python3 Ragnar-AOS-V2-Claude/dashboard/server.py --project /path/to/project
-```
+- **Run manifests** — every objective creates `.agentic-os/runs/<run_id>/` with manifest, trace, verification, checkpoint, costs
+- **4 Claude Code hooks** — PreToolUse (kill switch), PostToolUse (trace), Stop (checkpoint), UserPromptSubmit (resume detection)
+- **Evaluator subagent** — judges deliverables before the team-lead declares done (max 3 revisions)
+- **Scheduler templates** — launchd (macOS), Task Scheduler (Windows), GitHub Actions (cross-platform)
+- **/raos commands** — `resume`, `runs`, `kill`, `status`
+- **Observability-only budgets** — track tool calls, wall clock, $ estimates
 
-Opens http://localhost:9200.
+### 12 New Features (V3)
 
----
-
-# Ragnar's Agentic OS V3 — "The Hermes Update"
-
-V3 builds on V2's Scaffold with 12 new features borrowed from Hermes Agent patterns and 8 bug fixes.
-
-## V3 Folder Comparison
-
-| Folder | Runtime | Files | Who it's for |
-|--------|---------|-------|-------------|
-| `Ragnar-AOS-V3-Claude/` | Claude Code CLI | 75 | Ragnar (creator) |
-| `Ragnar-AOS-V3-GitHub/` | GitHub Copilot CLI | 79 | Microsoft team |
-
-## What's New in V3
-
-### 12 New Features
-
-1. **Context Window Management** — auto-summarize conversations, Active Task tracking to stay focused
-2. **Delegation Contracts** — isolation model for subagents with restricted tools and depth limits
+1. **Context Window Management** — auto-summarize, Active Task tracking
+2. **Delegation Contracts** — subagent isolation with restricted tools and depth limits
 3. **Agent Auto-Discovery** — agents self-register from the `agents/` directory
 4. **Background Tasks** — fire-and-forget and notify-on-complete patterns
-5. **Session Persistence** — SQLite + FTS5 full-text history search across sessions
-6. **Profile Isolation** — multiple configurations via `RAOS_HOME` environment variable
-7. **Dashboard Theme Engine** — YAML skins, theme switcher, 2 built-in themes
+5. **Session Persistence** — SQLite + FTS5 full-text history search
+6. **Profile Isolation** — multiple configs via `RAOS_HOME`
+7. **Dashboard Theme Engine** — JSON skins, theme switcher, 2 built-in themes
 8. **Cost/Token Tracking** — per-objective budgets with real-time monitoring
-9. **MCP Integration** — connect external tool servers via Model Context Protocol
+9. **MCP Integration** — external tool servers via Model Context Protocol
 10. **Platform Gateway** — multi-platform adapters (Claude, Copilot, etc.)
 11. **Terminal Backends** — local/docker/ssh/cloud execution abstraction
 12. **Command Registry** — single source of truth for all slash commands
 
-### 8 Bug Fixes
+### 8 Bug Fixes (V3)
 
 1. Fixed `detect_runtime` labels (correct platform detection)
-2. Added `.github/` path support for Copilot CLI skill installation
-3. Fixed installer path resolution for nested project structures
+2. Added `.github/` path support for Copilot CLI
+3. Fixed installer path resolution for nested projects
 4. Fixed schema paths in manifest and verification templates
-5. Fixed hooks docstring formatting (Claude Code hook descriptions)
-6. Added reference doc Copilot equivalents (parity across runtimes)
-7. Removed redundant template file (dead code cleanup)
-8. Documented Python 3.10+ as minimum requirement
+5. Fixed hooks docstring formatting
+6. Added reference doc Copilot equivalents (runtime parity)
+7. Removed redundant template file
+8. Documented Python 3.10+ minimum requirement
 
-## New Reference Docs in V3
+## Dashboard (Mission Control)
 
-Both V3 folders include these new reference documents:
+```bash
+python3 dashboard/server.py --project /path/to/your-project
+# Opens http://localhost:9200
+```
 
-- `references/context-window-management.md`
-- `references/delegation-contracts.md`
-- `references/background-tasks.md`
-- `references/session-persistence.md`
-- `references/profile-isolation.md`
-- `references/dashboard-themes.md`
-- `references/cost-tracking.md`
-- `references/mcp-integration.md`
-- `references/platform-gateway.md`
-- `references/terminal-backends.md`
-- `references/command-registry.md`
+Onboarding wizard + live task kanban. Supports theme switching (default + dark).
 
-## Changelog: V2 → V3
+## V2 Archive
 
-- **Added**: Context window management with auto-summarize and active task tracking
-- **Added**: Delegation contracts with isolation, restricted tools, depth limits
-- **Added**: Agent auto-discovery from `agents/` directory
-- **Added**: Background task execution (fire-and-forget + notify-on-complete)
-- **Added**: Session persistence via SQLite with FTS5 full-text search
-- **Added**: Profile isolation via `RAOS_HOME` for multi-config setups
-- **Added**: Dashboard theme engine with YAML skins and 2 built-in themes
-- **Added**: Cost/token tracking with per-objective budgets
-- **Added**: MCP integration for external tool server connections
-- **Added**: Platform gateway with multi-platform adapters
-- **Added**: Terminal backend abstraction (local/docker/ssh/cloud)
-- **Added**: Command registry as single source of truth
-- **Fixed**: `detect_runtime` labels now correctly identify the platform
-- **Fixed**: `.github/` path support for Copilot CLI installations
-- **Fixed**: Installer path resolution for nested projects
-- **Fixed**: Schema paths in manifest and verification templates
-- **Fixed**: Hooks docstring formatting
-- **Fixed**: Reference doc parity — Copilot equivalents added
-- **Removed**: Redundant template file
-- **Docs**: Python 3.10+ minimum requirement documented
+V2 folders are preserved for reference:
+
+| Folder | Runtime |
+|--------|---------|
+| `Ragnar-AOS-V2-Claude/` | Claude Code CLI |
+| `Ragnar-AOS-V2-GitHub/` | GitHub Copilot CLI |
+
+V3 is a superset of V2. Use V3.
 
 ---
 
-## Author
-
-Ragnar Pitla — [LinkedIn](https://www.linkedin.com/in/ragnarpitla/)
+**Author:** Ragnar Pitla — [LinkedIn](https://www.linkedin.com/in/ragnarpitla/)
