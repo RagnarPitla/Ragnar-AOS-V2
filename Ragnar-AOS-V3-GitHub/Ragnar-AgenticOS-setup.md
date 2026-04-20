@@ -377,7 +377,7 @@ The hook scripts in `harness/hooks/` are **Claude Code only**. They remain in th
 
 ## What's New in V3
 
-V3 adds 12 new capabilities inspired by Hermes Agent patterns:
+V3 adds 12 new capabilities:
 
 1. **Context Window Management** — auto-summarize conversations, Active Task tracking
 2. **Delegation Contracts** — subagent isolation with restricted tools and depth limits

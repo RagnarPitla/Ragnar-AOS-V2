@@ -1,4 +1,4 @@
-# Ragnar's Agentic OS — V3 "The Hermes Update"
+# Ragnar's Agentic OS — V3
 
 One file. Each teammate builds their OWN named Agentic OS. Their terminal becomes an objective-oriented AI workspace — with durable runs, crash recovery, an independent evaluator, and optional headless scheduling.
 
