@@ -10,7 +10,7 @@ This folder is V2 of Ragnar's Agentic OS. It adds **The Scaffold** — a durable
 
 ![The Scaffold Run Folder Anatomy](assets/The%20Scaffold%20Run%20Folder%20Anatomy.png)
 
-For the full list of what's new and how to migrate, see **[UPGRADE.md](UPGRADE.md)**. New here? Start with **[QUICKSTART.md](QUICKSTART.md)**. For terminology, see **[GLOSSARY.md](GLOSSARY.md)**.
+For the full list of what's new and how to migrate, see **[UPGRADE.md](UPGRADE.md)**. New here? Start with **[Install-guide.md](Install-guide.md)**. For terminology, see **[GLOSSARY.md](GLOSSARY.md)**.
 
 ---
 
@@ -80,7 +80,7 @@ The installer takes it from there.
 Ragnar-AOS-V2/
 ├── README.md                          ← this file
 ├── UPGRADE.md                         ← what's new in V2, migration from V1
-├── QUICKSTART.md                      ← how to get started in 2 minutes
+├── Install-guide.md                   ← how to get started in 2 minutes
 ├── GLOSSARY.md                        ← key terms and definitions
 ├── .gitignore.template                ← recommended .gitignore additions
 ├── Ragnar-AgenticOS-setup.md          ← the V2 installer (embeds everything below)
@@ -150,13 +150,9 @@ Ragnar-AOS-V2/
 
 ## Rebuilding the installer
 
-If you edit any blueprint file in this folder (SKILL.md, a reference doc, a template, a hook script, etc.), rebuild the single-file installer so the embedded copy matches. The build script now walks `harness/` too and uses a second sentinel pair (`RAOS-EXEC-START/END`) for executable scripts so the installer `chmod +x`es them on write.
+If you edit any blueprint file in this folder (SKILL.md, a reference doc, a template, a hook script, etc.), rebuild the single-file installer so the embedded copy matches.
 
-```bash
-python3 build_raos_installer.py
-```
-
-(The V2 build script lives at the workspace root. See the plan file for the updated version.)
+The installer is pre-built. If you edit blueprint files and need to regenerate, see the `.ragnar/` local backup for the build script.
 
 ---
 

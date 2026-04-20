@@ -81,7 +81,7 @@ gh copilot
 > install Ragnar-AgenticOS v2 from ./Ragnar-AgenticOS-setup.md
 ```
 
-The installer takes it from there. See [QUICKSTART.md](QUICKSTART.md) for the full step-by-step.
+The installer takes it from there. See [Install-guide.md](Install-guide.md) for the full step-by-step.
 
 ---
 
@@ -91,7 +91,7 @@ The installer takes it from there. See [QUICKSTART.md](QUICKSTART.md) for the fu
 Ragnar-AOS-V2-GitHub/
 ├── README.md                          ← this file
 ├── UPGRADE.md                         ← what's new in V2, migration from V1
-├── QUICKSTART.md                      ← GitHub Copilot CLI quickstart guide
+├── Install-guide.md                   ← GitHub Copilot CLI install guide
 ├── GLOSSARY.md                        ← key terms and definitions
 ├── HOOKS-DEGRADED.md                  ← what's lost without Claude Code hooks
 ├── Ragnar-AgenticOS-setup.md          ← the V2 installer (embeds everything below)
@@ -166,11 +166,9 @@ Ragnar-AOS-V2-GitHub/
 
 ## Rebuilding the installer
 
-If you edit any blueprint file in this folder, rebuild the single-file installer so the embedded copy matches:
+If you edit any blueprint file in this folder, rebuild the single-file installer so the embedded copy matches.
 
-```bash
-python3 build_raos_installer.py
-```
+The installer is pre-built. If you edit blueprint files and need to regenerate, see the `.ragnar/` local backup for the build script.
 
 ---
 
