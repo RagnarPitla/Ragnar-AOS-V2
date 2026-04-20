@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAOS V2 — Mission Control</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0a0a1a;--surface:#1a1a2e;--surface2:#16213e;--surface3:#0f3460;--accent:#00d4ff;--accent2:#00ff88;--text:#e0e0e0;--text2:#8892a4;--yellow:#ffd60a;--blue:#00d4ff;--green:#00ff88;--red:#ff4757;--glass:rgba(255,255,255,.05);--glass-border:rgba(255,255,255,.08);--radius:12px;--radius-sm:8px;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+html{font-family:var(--font);background:var(--bg);color:var(--text);height:100%}
+body{display:flex;height:100vh;overflow:hidden}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:3px}
+
+/* SIDEBAR */
+.sidebar{width:240px;background:linear-gradient(180deg,var(--surface) 0%,#0d0d20 100%);border-right:1px solid var(--glass-border);padding:24px 16px;display:flex;flex-direction:column;gap:20px;flex-shrink:0}
+.logo{font-size:13px;font-weight:700;color:var(--accent);letter-spacing:1.5px;text-transform:uppercase;line-height:1.4}
+.logo span{display:block;font-size:10px;color:var(--text2);font-weight:400;letter-spacing:.5px;margin-top:2px}
+.status-block{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:14px;display:flex;flex-direction:column;gap:10px}
+.status-row{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text2)}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.status-dot.green{background:var(--green);box-shadow:0 0 8px var(--green)}
+.status-dot.red{background:var(--red);box-shadow:0 0 8px var(--red)}
+.status-label{color:var(--text);font-weight:500}
+.sidebar-nav{display:flex;flex-direction:column;gap:4px;margin-top:8px}
+.nav-btn{background:none;border:none;color:var(--text2);font:inherit;font-size:13px;padding:10px 12px;border-radius:var(--radius-sm);cursor:pointer;text-align:left;transition:all .2s;display:flex;align-items:center;gap:10px}
+.nav-btn:hover{background:var(--glass);color:var(--text)}
+.nav-btn.active{background:rgba(0,212,255,.1);color:var(--accent);font-weight:600}
+.nav-btn .icon{font-size:16px;width:20px;text-align:center}
+.sidebar-footer{margin-top:auto;font-size:10px;color:var(--text2);opacity:.5;text-align:center}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.header{padding:20px 32px;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,rgba(0,212,255,.03),transparent)}
+.header h1{font-size:18px;font-weight:600;background:linear-gradient(135deg,var(--accent),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header-right{font-size:11px;color:var(--text2)}
+.content{flex:1;overflow-y:auto;padding:28px 32px}
+
+/* TAB CONTENT */
+.tab-content{display:none;animation:fadeIn .3s ease}
+.tab-content.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ONBOARDING */
+.wizard{max-width:640px;margin:0 auto}
+.progress-bar{display:flex;gap:4px;margin-bottom:32px}
+.progress-step{flex:1;height:4px;background:var(--surface2);border-radius:2px;transition:background .4s}
+.progress-step.done{background:var(--accent)}
+.progress-step.current{background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.step-panel{display:none;animation:slideIn .35s ease}
+.step-panel.active{display:block}
+@keyframes slideIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+.step-label{font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;margin-bottom:8px}
+.step-title{font-size:22px;font-weight:700;margin-bottom:6px}
+.step-desc{font-size:13px;color:var(--text2);margin-bottom:24px;line-height:1.6}
+.form-input{width:100%;padding:14px 16px;background:var(--surface);border:1px solid var(--glass-border);border-radius:var(--radius-sm);color:var(--text);font:inherit;font-size:14px;outline:none;transition:border-color .2s}
+.form-input:focus{border-color:var(--accent)}
+.form-input::placeholder{color:var(--text2)}
+.checkbox-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cb-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:14px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:10px;font-size:13px}
+.cb-card:hover{border-color:rgba(0,212,255,.3)}
+.cb-card.selected{border-color:var(--accent);background:rgba(0,212,255,.08)}
+.cb-card input{display:none}
+.cb-check{width:18px;height:18px;border:2px solid var(--text2);border-radius:4px;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;font-size:11px;color:transparent}
+.cb-card.selected .cb-check{border-color:var(--accent);background:var(--accent);color:#000}
+.step-actions{display:flex;gap:12px;margin-top:28px}
+.btn{padding:12px 28px;border-radius:var(--radius-sm);font:inherit;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#0090ff);color:#000}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,212,255,.3)}
+.btn-secondary{background:var(--glass);border:1px solid var(--glass-border);color:var(--text)}
+.btn-secondary:hover{border-color:var(--accent)}
+.btn-deploy{padding:16px 48px;font-size:15px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#000;letter-spacing:.5px}
+.btn-deploy:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,212,255,.35)}
+.review-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius);padding:24px;margin-bottom:24px}
+.review-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--glass-border);font-size:13px}
+.review-row:last-child{border:none}
+.review-row .label{color:var(--text2)}
+.review-row .value{color:var(--text);font-weight:500}
+.success-screen{text-align:center;padding:48px 0}
+.success-icon{font-size:64px;margin-bottom:16px;animation:popIn .5s ease}
+@keyframes popIn{0%{transform:scale(0)}50%{transform:scale(1.2)}100%{transform:scale(1)}}
+.success-screen h2{font-size:24px;margin-bottom:8px;color:var(--accent2)}
+.success-screen p{color:var(--text2);font-size:14px}
+
+/* TASK MONITOR */
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.stat-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:16px;text-align:center}
+.stat-value{font-size:28px;font-weight:700;background:linear-gradient(135deg,var(--accent),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-top:4px}
+.objective-bar{background:linear-gradient(90deg,rgba(0,212,255,.08),transparent);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:16px 20px;margin-bottom:24px;display:flex;align-items:center;gap:12px}
+.objective-bar .obj-label{font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;font-weight:600}
+.objective-bar .obj-title{font-size:15px;font-weight:600}
+.kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;min-height:300px}
+.kanban-col{background:rgba(255,255,255,.02);border:1px solid var(--glass-border);border-radius:var(--radius);padding:12px;display:flex;flex-direction:column;gap:8px}
+.kanban-col-header{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;padding:8px 4px;display:flex;align-items:center;gap:8px}
+.col-dot{width:8px;height:8px;border-radius:50%}
+.col-pending .col-dot{background:var(--yellow)}
+.col-progress .col-dot{background:var(--blue)}
+.col-done .col-dot{background:var(--green)}
+.col-blocked .col-dot{background:var(--red)}
+.col-pending .kanban-col-header{color:var(--yellow)}
+.col-progress .kanban-col-header{color:var(--blue)}
+.col-done .kanban-col-header{color:var(--green)}
+.col-blocked .kanban-col-header{color:var(--red)}
+.task-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:12px;transition:all .25s;animation:cardIn .3s ease}
+.task-card:hover{border-color:rgba(0,212,255,.2);transform:translateY(-2px)}
+@keyframes cardIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:none}}
+.task-id{font-size:10px;color:var(--accent);font-weight:600;font-family:monospace}
+.task-title{font-size:13px;font-weight:500;margin:6px 0}
+.task-agent{font-size:11px;color:var(--text2);display:flex;align-items:center;gap:4px}
+.task-time{font-size:10px;color:var(--text2);opacity:.6;margin-top:6px}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.badge-pending{background:rgba(255,214,10,.15);color:var(--yellow)}
+.badge-in-progress{background:rgba(0,212,255,.15);color:var(--blue)}
+.badge-done{background:rgba(0,255,136,.15);color:var(--green)}
+.badge-blocked{background:rgba(255,71,87,.15);color:var(--red)}
+.empty-state{text-align:center;padding:64px 0;color:var(--text2)}
+.empty-state .empty-icon{font-size:48px;margin-bottom:16px;opacity:.4}
+.empty-state h3{font-size:16px;margin-bottom:8px;color:var(--text)}
+.empty-state p{font-size:13px}
+.kanban-cards{display:flex;flex-direction:column;gap:8px;flex:1;overflow-y:auto}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo">RAOS V2<span>Ragnar Agentic OS — Mission Control</span></div>
+  <div class="status-block" id="statusBlock">
+    <div class="status-row"><div class="status-dot green" id="statusDot"></div><span class="status-label" id="connLabel">Connected</span></div>
+    <div class="status-row"><span>Project:</span></div>
+    <div class="status-row" style="word-break:break-all;color:var(--text);font-size:10px" id="projectPath">—</div>
+    <div class="status-row"><span>Runtime:</span><span class="status-label" id="runtimeLabel">—</span></div>
+    <div class="status-row"><span>OS Name:</span><span class="status-label" id="osNameLabel">—</span></div>
+  </div>
+  <nav class="sidebar-nav">
+    <button class="nav-btn active" data-tab="onboard"><span class="icon">🚀</span>Onboarding</button>
+    <button class="nav-btn" data-tab="tasks"><span class="icon">📋</span>Task Monitor</button>
+  </nav>
+  <div class="sidebar-footer">v2.0 · Built with ♥ by Ragnar</div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <header class="header">
+    <h1>Ragnar Agentic OS V2 — Mission Control</h1>
+    <div class="header-right">
+      <select id="themeSwitcher" style="background:var(--surface);color:var(--text);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:4px 8px;font-size:11px;margin-right:12px;cursor:pointer;outline:none">
+        <option value="">Loading themes...</option>
+      </select>
+      <span id="clockDisplay"></span>
+    </div>
+  </header>
+  <div class="content">
+
+    <!-- ONBOARDING TAB -->
+    <div class="tab-content active" id="tab-onboard">
+      <div class="wizard">
+        <div class="progress-bar" id="progressBar">
+          <div class="progress-step current"></div>
+          <div class="progress-step"></div>
+          <div class="progress-step"></div>
+          <div class="progress-step"></div>
+        </div>
+
+        <!-- Step 1 -->
+        <div class="step-panel active" data-step="1">
+          <div class="step-label">Step 1 of 4</div>
+          <div class="step-title">Name your OS</div>
+          <div class="step-desc">Choose a unique name for this Agentic OS instance. This identifies your project workspace.</div>
+          <input class="form-input" id="osName" placeholder="e.g. kumi-os, atlas-prime, nova-7" autofocus>
+          <div class="step-actions"><button class="btn btn-primary" onclick="nextStep()">Continue →</button></div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="step-panel" data-step="2">
+          <div class="step-label">Step 2 of 4</div>
+          <div class="step-title">Set your boot phrase</div>
+          <div class="step-desc">This phrase activates your OS when you start a new session. Make it memorable.</div>
+          <input class="form-input" id="bootPhrase" placeholder='e.g. "Boot kumi-os" or "Engage systems"'>
+          <div class="step-actions">
+            <button class="btn btn-secondary" onclick="prevStep()">← Back</button>
+            <button class="btn btn-primary" onclick="nextStep()">Continue →</button>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="step-panel" data-step="3">
+          <div class="step-label">Step 3 of 4</div>
+          <div class="step-title">Choose specialists</div>
+          <div class="step-desc">Select which specialist agents to deploy. You can always add more later.</div>
+          <div class="checkbox-grid" id="specialistGrid"></div>
+          <div class="step-actions">
+            <button class="btn btn-secondary" onclick="prevStep()">← Back</button>
+            <button class="btn btn-primary" onclick="nextStep()">Continue →</button>
+          </div>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="step-panel" data-step="4">
+          <div class="step-label">Step 4 of 4</div>
+          <div class="step-title">Review & Deploy</div>
+          <div class="step-desc">Confirm your configuration and deploy your Agentic OS.</div>
+          <div class="review-card" id="reviewCard"></div>
+          <div class="step-actions" style="justify-content:center">
+            <button class="btn btn-secondary" onclick="prevStep()">← Back</button>
+            <button class="btn btn-deploy" onclick="deploy()">⚡ Deploy RAOS V2</button>
+          </div>
+        </div>
+
+        <!-- Success -->
+        <div class="step-panel" data-step="5">
+          <div class="success-screen">
+            <div class="success-icon">✅</div>
+            <h2>OS Deployed Successfully!</h2>
+            <p>Your Agentic OS is configured and ready. Switch to Task Monitor to track progress.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TASKS TAB -->
+    <div class="tab-content" id="tab-tasks">
+      <div class="stats-bar">
+        <div class="stat-card"><div class="stat-value" id="statTotal">0</div><div class="stat-label">Total Tasks</div></div>
+        <div class="stat-card"><div class="stat-value" id="statDone">0</div><div class="stat-label">Completed</div></div>
+        <div class="stat-card"><div class="stat-value" id="statProgress">0</div><div class="stat-label">In Progress</div></div>
+        <div class="stat-card"><div class="stat-value" id="statUptime">0s</div><div class="stat-label">Uptime</div></div>
+      </div>
+      <div class="objective-bar" id="objectiveBar" style="display:none">
+        <div><div class="obj-label">Current Objective</div><div class="obj-title" id="objTitle">—</div></div>
+      </div>
+      <div id="kanbanArea"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// State
+let currentStep = 1;
+const defaultSpecialists = ['ADO','Dataverse','Frontend','Backend','DevOps','Testing','Docs'];
+
+// --- TABS ---
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// --- SIDEBAR STATUS ---
+async function updateStatus() {
+  try {
+    const [status, config] = await Promise.all([
+      fetch('/api/status').then(r => r.json()),
+      fetch('/api/config').then(r => r.json())
+    ]);
+    document.getElementById('statusDot').className = 'status-dot green';
+    document.getElementById('connLabel').textContent = 'Connected';
+    document.getElementById('projectPath').textContent = status.project_root || '—';
+    document.getElementById('runtimeLabel').textContent = status.runtime || '—';
+    document.getElementById('osNameLabel').textContent = config.os_name || 'Not configured';
+    if (config.specialists && config.specialists.length) {
+      populateSpecialists(config.specialists);
+    } else {
+      populateSpecialists(defaultSpecialists);
+    }
+    // uptime
+    const s = Math.floor(status.uptime_seconds);
+    const m = Math.floor(s/60), h = Math.floor(m/60);
+    document.getElementById('statUptime').textContent = h > 0 ? `${h}h ${m%60}m` : m > 0 ? `${m}m ${s%60}s` : `${s}s`;
+  } catch {
+    document.getElementById('statusDot').className = 'status-dot red';
+    document.getElementById('connLabel').textContent = 'Disconnected';
+  }
+}
+
+let specialistsPopulated = false;
+function populateSpecialists(list) {
+  if (specialistsPopulated) return;
+  specialistsPopulated = true;
+  const grid = document.getElementById('specialistGrid');
+  grid.innerHTML = '';
+  list.forEach(name => {
+    const card = document.createElement('label');
+    card.className = 'cb-card';
+    card.innerHTML = `<input type="checkbox" value="${name}" checked><div class="cb-check">✓</div><span>${name}</span>`;
+    card.classList.add('selected');
+    card.addEventListener('click', e => {
+      if (e.target.tagName === 'INPUT') return;
+      const cb = card.querySelector('input');
+      cb.checked = !cb.checked;
+      card.classList.toggle('selected', cb.checked);
+    });
+    grid.appendChild(card);
+  });
+}
+
+// --- WIZARD ---
+function showStep(n) {
+  currentStep = n;
+  document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.step-panel[data-step="${n}"]`).classList.add('active');
+  document.querySelectorAll('.progress-step').forEach((s, i) => {
+    s.className = 'progress-step' + (i < n - 1 ? ' done' : i === n - 1 ? ' current' : '');
+  });
+  if (n === 4) buildReview();
+}
+function nextStep() { if (currentStep < 5) showStep(currentStep + 1); }
+function prevStep() { if (currentStep > 1) showStep(currentStep - 1); }
+
+function getSelectedSpecialists() {
+  return [...document.querySelectorAll('#specialistGrid input:checked')].map(c => c.value);
+}
+
+function buildReview() {
+  const card = document.getElementById('reviewCard');
+  const specs = getSelectedSpecialists();
+  card.innerHTML = `
+    <div class="review-row"><span class="label">OS Name</span><span class="value">${document.getElementById('osName').value || '(empty)'}</span></div>
+    <div class="review-row"><span class="label">Boot Phrase</span><span class="value">${document.getElementById('bootPhrase').value || '(empty)'}</span></div>
+    <div class="review-row"><span class="label">Specialists</span><span class="value">${specs.join(', ') || 'None'}</span></div>
+    <div class="review-row"><span class="label">Agents Count</span><span class="value">${specs.length}</span></div>
+  `;
+}
+
+async function deploy() {
+  const data = {
+    os_name: document.getElementById('osName').value,
+    boot_phrase: document.getElementById('bootPhrase').value,
+    specialists: getSelectedSpecialists()
+  };
+  try {
+    await fetch('/api/onboard', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+    showStep(5);
+    document.querySelectorAll('.progress-step').forEach(s => s.className = 'progress-step done');
+  } catch (e) {
+    alert('Deploy failed: ' + e.message);
+  }
+}
+
+// --- TASK MONITOR ---
+let prevTaskIds = new Set();
+function renderTasks(data) {
+  const tasks = data.tasks || [];
+  const obj = data.objective;
+
+  // Stats
+  document.getElementById('statTotal').textContent = tasks.length;
+  document.getElementById('statDone').textContent = tasks.filter(t => t.status === 'done').length;
+  document.getElementById('statProgress').textContent = tasks.filter(t => t.status === 'in-progress').length;
+
+  // Objective
+  const bar = document.getElementById('objectiveBar');
+  if (obj && obj.title) {
+    bar.style.display = 'flex';
+    document.getElementById('objTitle').textContent = `${obj.title}`;
+  } else {
+    bar.style.display = 'none';
+  }
+
+  if (!tasks.length) {
+    document.getElementById('kanbanArea').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📭</div>
+        <h3>No active objective</h3>
+        <p>Start a task in your agentic OS to see it tracked here in real-time.</p>
+      </div>`;
+    return;
+  }
+
+  const cols = { pending: [], 'in-progress': [], done: [], blocked: [] };
+  tasks.forEach(t => { (cols[t.status] || cols.pending).push(t); });
+
+  const badgeCls = s => `badge badge-${s}`;
+  const renderCard = t => `
+    <div class="task-card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span class="task-id">${t.id}</span>
+        <span class="${badgeCls(t.status)}">${t.status}</span>
+      </div>
+      <div class="task-title">${t.title || '—'}</div>
+      <div class="task-agent">👤 ${t.agent || 'unassigned'}</div>
+      ${t.updated ? `<div class="task-time">${new Date(t.updated).toLocaleString()}</div>` : ''}
+    </div>`;
+
+  const renderCol = (key, label, items) => `
+    <div class="kanban-col col-${key === 'in-progress' ? 'progress' : key}">
+      <div class="kanban-col-header"><div class="col-dot"></div>${label} (${items.length})</div>
+      <div class="kanban-cards">${items.map(renderCard).join('')}</div>
+    </div>`;
+
+  document.getElementById('kanbanArea').innerHTML = `<div class="kanban">
+    ${renderCol('pending','Pending',cols.pending)}
+    ${renderCol('in-progress','In Progress',cols['in-progress'])}
+    ${renderCol('done','Done',cols.done)}
+    ${renderCol('blocked','Blocked',cols.blocked)}
+  </div>`;
+}
+
+async function pollTasks() {
+  try {
+    const data = await fetch('/api/tasks').then(r => r.json());
+    renderTasks(data);
+  } catch { /* offline */ }
+}
+
+// --- CLOCK ---
+function updateClock() {
+  document.getElementById('clockDisplay').textContent = new Date().toLocaleString();
+}
+
+// --- THEME ENGINE ---
+async function loadThemes() {
+  try {
+    const themes = await fetch('/api/themes').then(r => r.json());
+    const sel = document.getElementById('themeSwitcher');
+    sel.innerHTML = '';
+    themes.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.name;
+      opt.textContent = '🎨 ' + t.name;
+      sel.appendChild(opt);
+    });
+    // Restore saved theme
+    const saved = localStorage.getItem('raos-theme');
+    if (saved) {
+      sel.value = saved;
+      applyTheme(themes.find(t => t.name === saved) || themes[0]);
+    } else {
+      applyTheme(themes[0]);
+    }
+    sel.addEventListener('change', async () => {
+      const name = sel.value;
+      localStorage.setItem('raos-theme', name);
+      const theme = await fetch('/api/theme?name=' + encodeURIComponent(name)).then(r => r.json());
+      applyTheme(theme);
+    });
+  } catch { /* theme loading failed, use CSS defaults */ }
+}
+
+function applyTheme(theme) {
+  const root = document.documentElement;
+  if (theme.colors) {
+    root.style.setProperty('--bg', theme.colors.bg);
+    root.style.setProperty('--accent', theme.colors.accent || theme.colors.primary);
+    root.style.setProperty('--text', theme.colors.text);
+    root.style.setProperty('--green', theme.colors.success);
+    root.style.setProperty('--yellow', theme.colors.warning);
+    root.style.setProperty('--red', theme.colors.error);
+    if (theme.colors.primary) root.style.setProperty('--blue', theme.colors.primary);
+    if (theme.colors.secondary) {
+      root.style.setProperty('--surface', theme.colors.bg === '#121212' ? '#1e1e1e' : '#1a1a2e');
+    }
+  }
+  if (theme.fonts) {
+    if (theme.fonts.heading) root.style.setProperty('--font', theme.fonts.body || theme.fonts.heading);
+  }
+  if (theme.logo_text) {
+    const logo = document.querySelector('.logo');
+    if (logo) logo.childNodes[0].textContent = theme.logo_text;
+  }
+}
+
+// --- INIT ---
+updateStatus();
+updateClock();
+pollTasks();
+loadThemes();
+setInterval(updateStatus, 10000);
+setInterval(pollTasks, 3000);
+setInterval(updateClock, 1000);
+populateSpecialists(defaultSpecialists);
+</script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RAOS shared task list",
+  "description": "Lives at .github/tasks.json in the project. The Team Lead writes and reads this. /raos status renders it. Atomic writes. read, modify in memory, write whole file.",
+  "type": "object",
+  "required": ["version", "created", "updated", "objectives", "tasks"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "description": "Optimistic concurrency token. Incremented on every write. Read-modify-write must match the version read or abort.",
+      "default": 1
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601. Set on bootstrap, never changed."
+    },
+    "updated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601. Updated on every write."
+    },
+    "objectives": {
+      "type": "array",
+      "description": "Historical record of objectives accepted by the Team Lead. Ordered newest first.",
+      "items": {
+        "type": "object",
+        "required": ["id", "statement", "status", "accepted_at"],
+        "properties": {
+          "id": { "type": "string", "description": "Short slug, e.g., 'readme-clarity-2026-04' " },
+          "statement": { "type": "string", "description": "The user's one-sentence objective, verbatim." },
+          "parsed": {
+            "type": "object",
+            "description": "Structured form from templates/objective.template.md.",
+            "properties": {
+              "success_looks_like": { "type": "array", "items": { "type": "string" } },
+              "must_not_break": { "type": "array", "items": { "type": "string" } },
+              "out_of_scope": { "type": "array", "items": { "type": "string" } },
+              "phases": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["name", "specialists"],
+                  "properties": {
+                    "name": { "enum": ["Research", "Challenge", "Synthesis"] },
+                    "specialists": { "type": "array", "items": { "type": "string" } },
+                    "notes": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "status": { "enum": ["accepted", "in_progress", "verifying", "done", "blocked", "abandoned"] },
+          "accepted_at": { "type": "string", "format": "date-time" },
+          "done_at": { "type": "string", "format": "date-time" },
+          "verification": {
+            "type": "object",
+            "description": "Per-success-criterion evidence collected during the verification gate.",
+            "additionalProperties": { "type": "string" }
+          },
+          "run_id": {
+            "type": "string",
+            "description": "V2 Scaffold: slug of the run folder in .agentic-os/runs/<run_id>/. Links this objective to its durable run manifest. Optional for V1 back-compat."
+          }
+        }
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "description": "Open and recent tasks across all objectives. Tasks are atomic units owned by a specialist.",
+      "items": {
+        "type": "object",
+        "required": ["id", "objective_id", "owner", "title", "status", "bucket"],
+        "properties": {
+          "id": { "type": "string" },
+          "objective_id": { "type": "string", "description": "Links to objectives[].id." },
+          "phase": { "enum": ["Research", "Challenge", "Synthesis", "Ad-hoc"] },
+          "owner": { "type": "string", "description": "Specialist agent name (file stem in .github/agents/). 'cli-lead' for orchestration work." },
+          "coordinates_with": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Other specialists this task depends on or hands off to."
+          },
+          "title": { "type": "string" },
+          "detail": { "type": "string" },
+          "bucket": {
+            "enum": ["autonomous", "guidance"],
+            "description": "Two-bucket classification. Autonomous = do it, report. Guidance = ask user first."
+          },
+          "status": { "enum": ["pending", "in_progress", "blocked", "done", "cancelled"] },
+          "files_touched": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Project-relative paths. Used to enforce single-owner-per-file."
+          },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "output": { "type": "string", "description": "Short summary of the deliverable or finding." },
+          "run_id": {
+            "type": "string",
+            "description": "V2 Scaffold: slug of the run folder this task belongs to. Optional for V1 back-compat."
+          }
+        }
+      }
+    }
+  }
+}

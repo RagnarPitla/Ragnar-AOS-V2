@@ -1,0 +1,56 @@
+# {{PROJECT_NAME}}
+
+{{ONE_SENTENCE_DESCRIPTION}}
+
+## Agentic OS. how this project is organized
+
+This project runs on RAOS (Ragnar's Agentic OS). The user speaks to the Team Lead (`.claude/agents/cli-lead.md`). The Team Lead delegates to specialists. All work flows through `.claude/tasks.json`.
+
+Invoke the team with `/raos` from anywhere in this project folder.
+
+## Team
+
+| Agent | What it owns |
+|---|---|
+| `cli-lead` | Team lead (cli-lead IS the team-lead; the filename is .claude/agents/cli-lead.md). Accepts objectives, decomposes, dispatches. |
+{{SPECIALIST_ROWS}}
+
+## Active integrations
+
+{{INTEGRATION_LIST}}
+
+## Autonomous bucket. AI can do without asking
+
+{{AUTONOMOUS_ACTIONS}}
+
+## Guidance bucket. AI must confirm before acting
+
+{{GUIDANCE_ACTIONS}}
+
+## Guardrails (always on)
+
+1. No destructive git (force push, reset --hard, branch -D, checkout --) without explicit user approval, every time.
+2. No production writes without auth verification. For Power Platform, the pac-cli specialist runs `auth_who` first. For Azure, the azure specialist runs `az account show` first.
+3. No secret exfiltration to external services (Slack, pastebins, external APIs) without explicit user approval per destination.
+4. Two-bucket rule: classify every action as autonomous or guidance before taking it. When uncertain, default to guidance.
+5. Single-owner-per-file. If two agents need the same file, route through cli-lead to sequence them.
+
+## Top outcomes (next 30 days)
+
+{{TOP_OUTCOMES}}
+
+These are the first candidate objectives. The user may phrase them as objectives (via `/raos <objective>`) or as projects.
+
+## Reviewer
+
+Final output is reviewed by: {{REVIEWER}}
+
+## Integration recipes
+
+{{RECIPE_LINKS}}
+
+## Notes
+
+- Never call this "CLI". It is the Agentic OS, or the AI team.
+- The user only speaks to `cli-lead` (cli-lead = team-lead; named cli-lead because the agent file lives at .claude/agents/cli-lead.md). All specialist work flows through the Team Lead.
+- To add or remove team members, run `/raos` and choose the edit flow. don't hand-edit `.claude/agents/` during an objective run.

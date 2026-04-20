@@ -1,0 +1,18 @@
+{
+  "name": "Dark",
+  "colors": {
+    "primary": "#bb86fc",
+    "secondary": "#03dac6",
+    "bg": "#121212",
+    "text": "#e1e1e1",
+    "accent": "#bb86fc",
+    "success": "#03dac6",
+    "warning": "#ffb74d",
+    "error": "#cf6679"
+  },
+  "fonts": {
+    "heading": "'JetBrains Mono', 'Fira Code', monospace",
+    "body": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+  },
+  "logo_text": "RAOS V3 — Dark Mode"
+}

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-16"?>
+<!--
+  RAOS V2 Scaffold — Windows Task Scheduler template.
+  Placeholders (replaced by the installer):
+    <OS_NAME>     — slug of your OS, e.g., kumi-os
+    <PROJECT>     — absolute path to the project root (Windows-style, e.g., C:\Users\you\proj)
+    <RUN_ID>      — the run to resume on each wake
+    <SKILL_DIR>   — absolute path to the installed skill folder
+    <INTERVAL>    — ISO 8601 duration, e.g., PT1H for hourly, PT30M for every 30 min
+    <USER>        — your Windows username (for UserId below)
+
+  Install (PowerShell):
+    schtasks /Create /TN "RAOS-<OS_NAME>-<RUN_ID>" /XML this-file.xml
+  Remove:
+    schtasks /Delete /TN "RAOS-<OS_NAME>-<RUN_ID>" /F
+  Run once manually:
+    schtasks /Run /TN "RAOS-<OS_NAME>-<RUN_ID>"
+
+  Note: headless.sh is a bash script. On Windows, invoke it via Git Bash or WSL.
+        Adjust the <Command> below if you installed Claude Code under WSL.
+-->
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>RAOS V2 Scaffold scheduled run for <OS_NAME> / <RUN_ID></Description>
+    <Author>Ragnar's Agentic OS</Author>
+  </RegistrationInfo>
+
+  <Triggers>
+    <TimeTrigger>
+      <StartBoundary>2026-01-01T09:00:00</StartBoundary>
+      <Enabled>true</Enabled>
+      <Repetition>
+        <Interval><INTERVAL></Interval>
+        <StopAtDurationEnd>false</StopAtDurationEnd>
+      </Repetition>
+    </TimeTrigger>
+  </Triggers>
+
+  <Principals>
+    <Principal id="Author">
+      <UserId><USER></UserId>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT2H</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+
+  <Actions Context="Author">
+    <Exec>
+      <!-- Run the bash headless.sh via Git Bash. Adjust the path if needed. -->
+      <Command>C:\Program Files\Git\bin\bash.exe</Command>
+      <Arguments>"&lt;SKILL_DIR&gt;/harness/bin/headless.sh" "&lt;PROJECT&gt;" "&lt;RUN_ID&gt;"</Arguments>
+      <WorkingDirectory><PROJECT></WorkingDirectory>
+    </Exec>
+  </Actions>
+</Task>
