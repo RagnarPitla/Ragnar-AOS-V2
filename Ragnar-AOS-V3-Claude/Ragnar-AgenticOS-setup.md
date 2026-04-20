@@ -99,7 +99,7 @@ For each sentinel block below (either `RAOS-FILE-START/END` or `RAOS-EXEC-START/
    - In SKILL.md: replace `name: ragnar-agentic-os-setup` with `name: <OS_NAME>`, replace `Ragnar's Agentic OS` titles with `<OS_DISPLAY>`.
    - In `commands/raos.md`: rename to `commands/<OS_NAME>.md` on write.
    - In scheduler templates, harness/settings.json.fragment, and headless.sh: replace `<OS_NAME>` and `<SKILL_DIR>` placeholders with the resolved values.
-5. Write the file. If the block used `RAOS-EXEC-START/END`, `chmod +x` the destination after writing.
+5. Write the file. If the block used `RAOS-EXEC-START/END`, `chmod +x` the destination after writing. On Windows, skip `chmod` — the scripts are bash and require Git Bash or WSL to run; they are inert on native Windows (the team-lead prompt handles their responsibilities manually on Copilot CLI).
 
 ### Step 4: Register the V2 hooks in ~/.claude/settings.json
 
@@ -595,6 +595,7 @@ If the user asks to uninstall their OS:
 3. Leave `.agentic-os/` folders in projects alone. They contain user learnings.
 
 Confirm with user before deleting anything.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
 
 ---
 
@@ -855,7 +856,6 @@ If the teammate wants the advanced Ragnar-Claw execution engine (parallel worker
 **End of embedded files.** Total: 37 blueprint files.
 
 If you are an AI reading this file as a user invocation, you should now be in Step 7 (report what was installed). If you haven't done Steps 1-6 yet, go back to the top and start over. Do not skip ahead.
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START commands/raos.md
 ---
