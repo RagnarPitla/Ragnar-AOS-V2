@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  RAOS V2 Scaffold — macOS launchd agent template.
+  Placeholders (replaced by the installer):
+    <OS_NAME>     — slug of your OS, e.g., kumi-os
+    <PROJECT>     — absolute path to the project root
+    <RUN_ID>      — the run to resume on each wake
+    <SKILL_DIR>   — absolute path to the installed skill folder
+    <INTERVAL>    — seconds between runs (default 3600)
+
+  Install:
+    cp this file to ~/Library/LaunchAgents/com.ragnar.raos.<OS_NAME>.<RUN_ID>.plist
+    launchctl load   ~/Library/LaunchAgents/com.ragnar.raos.<OS_NAME>.<RUN_ID>.plist
+    launchctl start  com.ragnar.raos.<OS_NAME>.<RUN_ID>
+  Remove:
+    launchctl unload ~/Library/LaunchAgents/com.ragnar.raos.<OS_NAME>.<RUN_ID>.plist
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.ragnar.raos.<OS_NAME>.<RUN_ID></string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string><SKILL_DIR>/harness/bin/headless.sh</string>
+      <string><PROJECT></string>
+      <string><RUN_ID></string>
+    </array>
+
+    <key>StartInterval</key>
+    <integer><INTERVAL></integer>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string><PROJECT>/.agentic-os/runs/<RUN_ID>/launchd.stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string><PROJECT>/.agentic-os/runs/<RUN_ID>/launchd.stderr.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>CLAUDE_PROJECT_DIR</key>
+      <string><PROJECT></string>
+      <key>PATH</key>
+      <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+  </dict>
+</plist>

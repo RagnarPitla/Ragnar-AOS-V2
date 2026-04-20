@@ -1,0 +1,23 @@
+# Ragnar's Agentic OS V2 — .gitignore additions
+# Add these lines to your project's .gitignore.
+# We ignore ephemeral run artifacts but KEEP manifest.yaml and verification.yaml
+# (those are the durable state you want in version control).
+
+# Run traces (large, per-session)
+.agentic-os/runs/*/trace.ndjson
+
+# Cost rollups (regenerated from trace)
+.agentic-os/runs/*/costs.json
+
+# Checkpoint snapshots (session-local)
+.agentic-os/runs/*/checkpoint.json
+
+# SQLite exports (optional, regenerated)
+.agentic-os/runs/*/*.sqlite
+
+# Kill sentinels (ephemeral)
+.agentic-os/runs/*/KILL
+
+# DO NOT ignore these — they are durable run state:
+# .agentic-os/runs/*/manifest.yaml
+# .agentic-os/runs/*/verification.yaml

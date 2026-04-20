@@ -1,0 +1,62 @@
+# RAOS V2 Scaffold — GitHub Actions scheduled run template.
+# Cross-platform happy path. Works for any OS that has Claude Code or Copilot CLI.
+#
+# Placeholders (replaced by the installer):
+#   <OS_NAME>    — your OS slug
+#   <RUN_ID>     — the run to resume
+#   <CRON>       — cron expression, e.g., "0 */2 * * *" for every 2 hours
+#
+# Install:
+#   1. Copy this file to .github/workflows/raos-<OS_NAME>-<RUN_ID>.yml in your repo
+#   2. Add a repo secret ANTHROPIC_API_KEY (or your Claude Code auth of choice)
+#   3. Commit and push
+#
+# What it does:
+#   - On the cron schedule, checks out the repo
+#   - Installs Claude Code
+#   - Runs headless.sh against the pinned run_id
+#   - Commits any changes back (optional — comment out if you want manual review)
+
+name: RAOS Scheduled Run — <OS_NAME> — <RUN_ID>
+
+on:
+  schedule:
+    - cron: "<CRON>"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  resume:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Claude Code
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Configure Claude Code
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          mkdir -p ~/.claude
+          echo "$ANTHROPIC_API_KEY" > ~/.claude/api_key
+
+      - name: Resume RAOS run
+        run: |
+          chmod +x .claude/skills/<OS_NAME>/harness/bin/headless.sh
+          .claude/skills/<OS_NAME>/harness/bin/headless.sh "$GITHUB_WORKSPACE" "<RUN_ID>"
+
+      - name: Commit changes (optional)
+        run: |
+          git config user.name "raos-headless"
+          git config user.email "raos-headless@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "raos: scheduled resume of <RUN_ID>"
+          git push || true

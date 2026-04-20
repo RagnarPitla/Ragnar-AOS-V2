@@ -1,0 +1,39 @@
+# RAOS V2 Scaffold — run manifest template
+# Lives at .agentic-os/runs/<run_id>/manifest.yaml
+# One per objective. Written by the team-lead on accept, updated by hooks.
+# Intentionally flat-ish so manifest.sh (jq-free) can parse it with awk/sed.
+
+run_id: "<RUN_ID>"                           # slug, e.g., niyam-returns-20260419-1432
+os_name: "<OS_NAME>"                         # your OS slug, personalized at install
+objective_id: "<OBJECTIVE_ID>"               # foreign key to tasks.json objectives[].id
+objective_statement: "<OBJECTIVE_STATEMENT>" # the user's one-sentence input, verbatim
+runtime: "claude-code"                       # or "copilot-cli"
+created_at: "<ISO8601>"
+updated_at: "<ISO8601>"
+
+status: "accepted"                           # accepted|running|paused|verifying|done|blocked|killed|failed
+current_phase: "research"                    # research|challenge|synthesis|verification|done
+
+budgets:
+  # Enforcement is OFF by default. Counters still increment for observability.
+  # Flip to true if you want pre-tool-use hook to block on hard cap.
+  enforce: false
+  tool_calls:   { soft: 150,  hard: 300,   used: 0 }
+  wall_clock_s: { soft: 1800, hard: 7200,  used: 0 }
+  dollars:      { soft: 5.00, hard: 20.00, used: 0.00 }
+
+# Newest last. Each Stop hook appends an "auto-on-stop" entry.
+# Team-lead may append named milestones too.
+checkpoints: []
+
+# Every gate decision (auth, approval, verification, kill, circuit_breaker)
+# is recorded here for audit and replay.
+gates: []
+
+trace_file: "trace.ndjson"                   # relative to this run's directory
+verification_file: "verification.yaml"
+costs_file: "costs.json"
+
+# Optimistic concurrency: version of tasks.json at last sync. If tasks.json
+# has advanced, team-lead must reconcile before writing.
+linked_tasks_version: 0

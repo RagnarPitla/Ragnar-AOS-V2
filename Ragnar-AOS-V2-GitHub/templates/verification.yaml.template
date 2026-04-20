@@ -1,0 +1,26 @@
+# RAOS V2 Scaffold — verification template
+# Lives at .agentic-os/runs/<run_id>/verification.yaml
+# The team-lead writes criteria from the objective's SUCCESS LOOKS LIKE block.
+# The evaluator subagent fills in verdict + evidence for each criterion, one by one.
+# Team-lead reads the evaluator's output to decide: done, or loop Synthesis with targeted brief.
+
+run_id: "<RUN_ID>"
+objective_id: "<OBJECTIVE_ID>"
+max_iterations: 3                              # after 3 revision rounds, escalate to user (guidance bucket)
+
+criteria:
+  - id: "c1"
+    statement: "<measurable success criterion, verbatim from objective>"
+    how_to_verify: "<command, file path, or manual check>"   # e.g., "run `pnpm test`", "inspect docs/README.md"
+    verdict: "pending"                        # pending|pass|fail|inconclusive
+    evidence: ""                              # filled by evaluator: file_path:line_range, command + stdout hash, or screenshot path
+    iteration: 0
+
+# Evaluator appends to this list after each run. Never overwrites.
+# One entry per full verification pass (all criteria evaluated together).
+iterations:
+  - n: 0
+    ts: ""
+    verdict: ""                               # pass|needs_revision
+    failing_criteria: []                      # list of ids that failed this iteration
+    note: ""

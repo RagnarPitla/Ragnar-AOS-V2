@@ -1,0 +1,36 @@
+{
+  "//": "RAOS V2 Scaffold — Claude Code hook registration ONLY. GitHub Copilot CLI does not use this file. See HOOKS-DEGRADED.md for details on what's lost and manual alternatives.",
+  "//2": "If you are on Claude Code, the installer merges this into ~/.claude/settings.json. <OS_NAME> is the personalized OS slug; <SKILL_DIR> is the absolute path to the installed skill folder.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          { "type": "command", "command": "<SKILL_DIR>/harness/hooks/pre-tool-use.sh" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          { "type": "command", "command": "<SKILL_DIR>/harness/hooks/post-tool-use.sh" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "<SKILL_DIR>/harness/hooks/stop.sh" }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "<SKILL_DIR>/harness/hooks/user-prompt-submit.sh" }
+        ]
+      }
+    ]
+  }
+}

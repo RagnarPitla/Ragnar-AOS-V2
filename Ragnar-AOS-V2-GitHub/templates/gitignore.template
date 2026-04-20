@@ -1,0 +1,22 @@
+# .gitignore template for RAOS V2 projects
+# Copy this to your project's .gitignore or append these lines.
+
+# RAOS local state (per-project, not shared)
+.agentic-os/runs/*/trace.ndjson
+.agentic-os/runs/*/costs.json
+.agentic-os/runs/*/headless.log
+.agentic-os/runs/*/checkpoint.json
+.agentic-os/memory.md
+.agentic-os/routines.md
+
+# Keep manifests and verification files (useful for team visibility)
+# Uncomment these if you also want to exclude them:
+# .agentic-os/runs/*/manifest.yaml
+# .agentic-os/runs/*/verification.yaml
+
+# OS metadata (personal to each user)
+.agentic-os/os.txt
+.agentic-os/version.txt
+
+# Kill sentinels (ephemeral)
+.agentic-os/runs/*/KILL
