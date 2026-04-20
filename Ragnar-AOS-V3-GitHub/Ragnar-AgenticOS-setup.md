@@ -168,14 +168,319 @@ Two sentinel pairs:
 - `RAOS-EXEC-START` / `RAOS-EXEC-END` — executable scripts. Installer must `chmod +x` these after writing.
 
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START .agentic-os/last-improvement-check.txt
+2026-04-20
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START .agentic-os/memory.md
+# V3-Ragnar. Project Memory
+
+## Patterns that worked
+
+## Patterns that failed
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START .agentic-os/os.txt
+v3-ragos
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START .agentic-os/routines.md
+# Candidate Routines
+
+## Seen more than once
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START .agentic-os/version.txt
+1.09
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START GLOSSARY.md
+# GLOSSARY — Ragnar's Agentic OS V2
+
+Key terms used throughout the RAOS documentation and templates.
+
+| Term | Definition |
+|---|---|
+| **RAOS** | Ragnar's Agentic OS. The framework described in this repository. |
+| **The Scaffold** | The V2 durable harness layer: run manifests, checkpoints, tracing, evaluator, scheduler templates. |
+| **Team Lead** | The orchestrator agent (`cli-lead`). The only agent the user speaks to directly. Decomposes objectives, dispatches specialists, enforces guardrails. |
+| **Specialist** | A domain-specific agent (e.g., `pac-cli`, `dataverse`, `azure`) that reports to the team-lead. |
+| **Evaluator** | An independent judge agent that verifies deliverables against `verification.yaml` before the team-lead declares done. Runs with explicit isolation from the team-lead's reasoning. |
+| **Objective** | A user-stated outcome (Stage 3). The team-lead decomposes it into phases and delegates to specialists. |
+| **Project** | A user-stated feature or chunk of work (Stage 2). Lighter than an objective — no full 4-phase cycle. |
+| **Run** | A durable execution of an objective. Lives in `.agentic-os/runs/<run_id>/` with manifest, trace, verification, checkpoint, and costs. |
+| **Run manifest** | `manifest.yaml` — the durable state file for a run. Tracks status, phase, budgets, checkpoints, gates. |
+| **Verification** | `verification.yaml` — criteria the evaluator checks against. Each criterion has a `how_to_verify` field. |
+| **Checkpoint** | A snapshot of the run's state at a phase boundary. Written to `checkpoint.json`. Enables resume after crash. |
+| **Two-bucket rule** | Every action is classified as **autonomous** (reversible, cheap — just do it) or **guidance** (destructive, judgment — ask user first). |
+| **Kill switch** | A mechanism to halt a run. In Claude Code, enforced by hooks. In Copilot CLI, the team-lead checks for a KILL sentinel file at phase boundaries. |
+| **Circuit breaker** | Automatic pause after repeated errors. In Claude Code, enforced by PostToolUse hook. In Copilot CLI, the team-lead pauses after 3 consecutive failures. |
+| **Gate** | A decision point recorded in the manifest's `gates[]` array. Types: `auth`, `guidance`, `verification`, `budget`. |
+| **Phase** | One of the four execution stages: Research, Challenge, Synthesis, Verify. |
+| **Auto-boot** | A block in `~/.github/instructions.md` that activates the OS when the user's wake phrase is detected. |
+| **Factory model** | Each teammate names and installs their own OS instance from the shared blueprint. |
+| **Headless run** | An unattended scheduled run. Best achieved via GitHub Actions on Copilot CLI. |
+| **Observability-only budgets** | Token/time/cost counters that track but don't enforce limits by default. |
+| **Self-improvement loop** | Every 7 days, the OS proposes new skills, routines, or upgrades based on observed patterns. |
+
+## Copilot CLI-specific terms
+
+| Term | Definition |
+|---|---|
+| **Degraded hooks** | The Claude Code hook system (PreToolUse, PostToolUse, Stop, UserPromptSubmit) is not available in Copilot CLI. The team-lead compensates with prompt-level instructions. See [HOOKS-DEGRADED.md](HOOKS-DEGRADED.md). |
+| **Manual isolation** | The evaluator cannot run in a forked context on Copilot CLI. The team-lead invokes it with explicit instructions to ignore prior reasoning. |
+
+## V3 Terms
+
+| Term | Definition |
+|---|---|
+| **Context Compression** | Automatic summarization of conversation history when the context window approaches its limit. Preserves key decisions and active task state while freeing token budget. |
+| **Delegation Contract** | A structured agreement passed to a subagent specifying allowed tools, depth limits, timeout, and expected output format. Enforces isolation between agents. |
+| **Session Persistence** | Durable storage of conversation history and run state in SQLite with FTS5 full-text search. Enables cross-session resume and history queries. |
+| **Profile Isolation** | Running multiple independent RAOS configurations on the same machine by setting the `RAOS_HOME` environment variable to different directories. |
+| **MCP (Model Context Protocol)** | A protocol for connecting external tool servers to the Agentic OS. Enables third-party integrations without modifying core agent prompts. |
+| **Platform Gateway** | An adapter layer that normalizes differences between CLI runtimes (Claude Code, GitHub Copilot, etc.) so the same agent logic runs on any platform. |
+| **Terminal Backend** | An abstraction over execution environments: local shell, Docker container, SSH remote, or cloud instance. Agents request terminal access without knowing the underlying transport. |
+| **Command Registry** | A single YAML/JSON file that defines all available slash commands, their arguments, and help text. The source of truth for `/raos` command routing. |
+| **Cost Tracking** | Per-run and per-objective accounting of token usage, API costs, and wall-clock time. Logged in the run manifest for budget monitoring. |
+| **Background Task** | An agent-initiated task that runs asynchronously. Two modes: fire-and-forget (no result needed) and notify-on-complete (agent is notified when done). |
+| **Agent Discovery** | Automatic registration of agents by scanning the `agents/` directory at boot. New `.md` agent files are picked up without manual wiring. |
+| **Theme Engine** | A dashboard subsystem that loads visual themes from YAML skin files. Supports a theme switcher and ships with 2 built-in themes. |
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START GitHub-Copilot-AgenticOS-setup.md
+# GitHub Copilot CLI — Ragnar's Agentic OS V2 Setup Guide
+
+This is the setup guide for installing RAOS V2 on **GitHub Copilot CLI** (`gh copilot`).
+
+For Claude Code, use `Ragnar-AgenticOS-setup.md` instead. This file covers the Copilot-specific differences.
+
+## Prerequisites
+
+1. GitHub CLI: https://cli.github.com/
+2. GitHub Copilot extension:
+   ```bash
+   gh extension install github/gh-copilot
+   ```
+
+## What gets installed
+
+The installer (`Ragnar-AgenticOS-setup.md`) writes to:
+
+| Item | Location |
+|---|---|
+| Skill folder | `~/.github/skills/<your-os-name>/` |
+| Auto-boot block | `~/.github/instructions.md` |
+| Project memory | `.agentic-os/` (in each project) |
+| Agent files | `.github/agents/` (in each project, after bootstrap) |
+| Task list | `.github/tasks.json` (in each project) |
+
+## What's NOT installed (vs Claude Code)
+
+- **No hook registration.** Claude Code's `settings.json.fragment` is not used. GitHub Copilot CLI does not have a PreToolUse/PostToolUse/Stop/UserPromptSubmit hook system.
+- **No automatic tracing, kill switch, circuit breaker, or checkpointing.** These are handled by prompt-level instructions in the team-lead agent instead.
+
+See [HOOKS-DEGRADED.md](HOOKS-DEGRADED.md) for the full breakdown of what's lost and the manual alternatives.
+
+## Installation
+
+```bash
+cd path/to/your/project
+gh copilot
+> Install Ragnar-AgenticOS v2 from ./Ragnar-AgenticOS-setup.md
+```
+
+The installer detects that you're on Copilot CLI (by checking for `~/.github/`) and:
+
+1. Asks three naming questions (slug, display name, wake phrase)
+2. Writes the skill folder to `~/.github/skills/<slug>/`
+3. Appends auto-boot to `~/.github/instructions.md`
+4. Creates `.agentic-os/` in the current project
+5. Skips hook registration (not applicable)
+6. Reports done
+
+## Headless / scheduled runs
+
+GitHub Copilot CLI does not have a headless print mode like `claude -p`. For unattended runs:
+
+- **Use GitHub Actions.** The template at `harness/schedule/github-actions.yaml.template` is the recommended approach. It runs in CI, has built-in logging, timeouts, and failure notifications.
+- **Local fallback.** `harness/bin/headless-copilot.sh` exists as a best-effort wrapper but is limited. Prefer GitHub Actions.
+
+## Evaluator subagent
+
+The evaluator runs without `context: fork` (not supported in Copilot CLI). Instead, the team-lead invokes the evaluator with explicit isolation instructions:
+
+> "You are the evaluator. Ignore all prior reasoning about this objective. Read only verification.yaml and the deliverables. Judge fresh."
+
+This is a prompt-level approximation of context isolation. It works well in practice but is not as strong as Claude Code's forked context.
+
+## Uninstall
+
+1. Delete `~/.github/skills/<your-os-name>/`
+2. Remove the auto-boot block from `~/.github/instructions.md` (search for your OS name between sentinel markers)
+3. Optionally delete `.agentic-os/` from your projects
+
+## Questions
+
+Ping Ragnar Pitla on LinkedIn: https://www.linkedin.com/in/ragnarpitla/
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START HOOKS-DEGRADED.md
+# Hooks Degraded Mode — GitHub Copilot CLI
+
+GitHub Copilot CLI does **not** support the Claude Code hook system (PreToolUse, PostToolUse, Stop, UserPromptSubmit). This document explains what each hook did and what manual alternatives exist.
+
+## What the Claude Code hooks did
+
+| Hook | File | What it did automatically |
+|---|---|---|
+| **PreToolUse** | `harness/hooks/pre-tool-use.sh` | Checked for a KILL sentinel file before every tool call (kill switch). Optionally enforced budget caps. Dispatched auth gate checks for production-affecting tools. |
+| **PostToolUse** | `harness/hooks/post-tool-use.sh` | Appended a span to `trace.ndjson` after every tool call (automatic tracing). Bumped tool-call counters in the manifest. Triggered the circuit breaker if error rate exceeded threshold. |
+| **Stop** | `harness/hooks/stop.sh` | Wrote a checkpoint to `checkpoint.json` on session end. Rolled up costs from the trace into `costs.json`. Updated the manifest with final phase/status. |
+| **UserPromptSubmit** | `harness/hooks/user-prompt-submit.sh` | Detected `/raos resume <run_id>` and `/raos kill <run_id>` commands before they reached the agent. Displayed an active-run banner. Marked runs active/killed. |
+
+## What's lost in Copilot CLI
+
+1. **Automatic tracing** — Tool calls are not automatically logged to `trace.ndjson`. The team-lead must manually note key actions in the manifest or trace file.
+2. **Kill switch enforcement** — No automatic pre-tool-call check for a KILL sentinel. The user must tell the team-lead to stop, or cancel the session.
+3. **Circuit breaker** — No automatic error-rate detection. The team-lead must notice repeated failures and pause.
+4. **Automatic checkpointing** — No session-end hook to write `checkpoint.json`. The team-lead prompt includes instructions to write checkpoints at phase boundaries.
+5. **Auth gate dispatch** — No automatic routing of production-affecting tool calls through auth checks. The team-lead and specialists must follow the guardrails in `instructions.md` manually.
+6. **Budget enforcement** — No automatic blocking when budget caps are hit. Budgets are observability-only; the team-lead tracks them manually.
+
+## Manual alternatives
+
+| Lost capability | Manual alternative |
+|---|---|
+| Kill switch | Tell the team-lead "stop" or cancel the Copilot session. To pre-set a kill, create `.agentic-os/runs/<run_id>/KILL` manually; the team-lead checks for it at phase boundaries. |
+| Tracing | The team-lead writes checkpoint entries at each phase boundary. For full tracing, run `harness/bin/trace-to-sqlite.sh` on any manually-maintained trace file. |
+| Checkpointing | The team-lead writes `checkpoint.json` at every phase transition (built into the team-lead prompt). |
+| Cost rollup | Run `harness/bin/costs.sh` manually after a run completes. |
+| Circuit breaker | The team-lead is instructed to pause after 3 consecutive errors and escalate to the user. |
+| Auth gate | Specialists are instructed to verify auth before production writes (same as always; just not auto-enforced). |
+
+## For headless/scheduled runs
+
+Headless mode in Copilot CLI is best achieved through **GitHub Actions** using `harness/schedule/github-actions.yaml.template`. GitHub Actions provides its own job logging, timeout enforcement, and failure notifications — covering most of what the hooks provided.
+
+## The harness/hooks/ folder
+
+The hook scripts in `harness/hooks/` are **Claude Code only**. They remain in the repository as reference implementations. If you migrate to Claude Code, they will work with the `settings.json.fragment` hook registration. On Copilot CLI, they are inert.
+
+## Version
+
+2.0 (2026-04-19). GitHub Copilot CLI degraded-hooks documentation.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START QUICKSTART.md
+# Quickstart — Ragnar's Agentic OS V2 for GitHub Copilot CLI
+
+## What's New in V3
+
+V3 adds 12 new capabilities inspired by Hermes Agent patterns:
+
+1. **Context Window Management** — auto-summarize conversations, Active Task tracking
+2. **Delegation Contracts** — subagent isolation with restricted tools and depth limits
+3. **Agent Auto-Discovery** — agents self-register from the `agents/` directory
+4. **Background Tasks** — fire-and-forget and notify-on-complete execution
+5. **Session Persistence** — SQLite + FTS5 full-text history search
+6. **Profile Isolation** — multiple configurations via `RAOS_HOME`
+7. **Dashboard Theme Engine** — YAML skins, theme switcher, 2 built-in themes
+8. **Cost/Token Tracking** — per-objective budgets with real-time monitoring
+9. **MCP Integration** — external tool server connections via Model Context Protocol
+10. **Platform Gateway** — multi-platform adapters (Claude, Copilot, etc.)
+11. **Terminal Backends** — local/docker/ssh/cloud execution abstraction
+12. **Command Registry** — single source of truth for all slash commands
+
+Get from zero to a working Agentic OS team in under 5 minutes.
+
+## Prerequisites
+
+1. **GitHub CLI** installed: https://cli.github.com/
+2. **GitHub Copilot CLI extension** installed:
+   ```bash
+   gh extension install github/gh-copilot
+   ```
+3. **Python 3.10+** installed (required for the dashboard and build scripts).
+4. **A project folder** you want to work in.
+
+## Step 1: Get the installer
+
+Download or copy `Ragnar-AgenticOS-setup.md` (the single-file installer) into your project folder or home directory.
+
+## Step 2: Run the installer
+
+```bash
+cd path/to/your/project
+gh copilot
+> Install Ragnar-AgenticOS v2 from ./Ragnar-AgenticOS-setup.md
+```
+
+The installer will:
+- Ask you to name your OS (slug, display name, wake phrase)
+- Write ~23 blueprint files to `~/.github/skills/<your-os-name>/`
+- Create `.agentic-os/` in your project for local memory and runs
+- Wire auto-boot in `~/.github/instructions.md`
+
+## Step 3: Use your team
+
+From any project folder:
+
+```bash
+gh copilot
+> <your wake phrase>
+```
+
+Or use the slash command:
+
+```
+/raos                          # status / bootstrap
+/raos <objective sentence>     # start a new objective
+/raos status                   # dashboard
+/raos runs                     # list all runs
+/raos resume <run_id>          # continue a paused run
+/raos kill <run_id>            # halt a run
+```
+
+## What's different from Claude Code
+
+GitHub Copilot CLI does not support Claude Code's hook system. This means:
+
+- **No automatic tracing** — the team-lead writes checkpoints at phase boundaries instead
+- **No automatic kill switch** — tell the team-lead "stop" or cancel the session
+- **No automatic circuit breaker** — the team-lead pauses after repeated failures
+
+These are observability trade-offs, not functionality losses. The team-lead prompt compensates by including explicit checkpoint and error-handling instructions. For full details, see [HOOKS-DEGRADED.md](HOOKS-DEGRADED.md).
+
+**Headless/scheduled runs** work best through GitHub Actions. See `harness/schedule/github-actions.yaml.template`.
+
+## Dashboard (Mission Control)
+
+Run the local dashboard for onboarding and live task monitoring:
+
+    python3 dashboard/server.py --project /path/to/your-project
+
+Opens http://localhost:9200 with:
+- **Onboarding Wizard** — name your OS, pick specialists, deploy
+- **Task Monitor** — live kanban view of tasks.json
+
+## Next steps
+
+- Read [UPGRADE.md](UPGRADE.md) if migrating from V1
+- Read [references/the-scaffold.md](references/the-scaffold.md) for the V2 thesis
+- Read [references/the-4-stages.md](references/the-4-stages.md) for the mental model
+
+## Questions
+
+Ping Ragnar Pitla on LinkedIn: https://www.linkedin.com/in/ragnarpitla/
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START SKILL.md
 ---
 name: ragnar-agentic-os-setup
 version: 2.0
-description: Factory installer for Ragnar's Agentic OS (RAOS) V2 — "The Scaffold". Use when user says "install Ragnar-AgenticOS", "install RAOS v2", "set up my Agentic OS", or invokes this file. V2 adds a durable harness layer on top of V1: run manifests in .agentic-os/runs/, 4 GitHub Copilot CLI hooks (PreToolUse/PostToolUse/Stop/UserPromptSubmit) for tracing + checkpointing + kill switch, an evaluator subagent that runs in a forked context, scheduler templates (launchd/Task Scheduler/GitHub Actions) for headless runs, and /raos resume|runs|kill subcommands. Everything V1 did still works — V2 is additive and back-compatible. See UPGRADE.md for migration details.
+description: Factory installer for Ragnar's Agentic OS (RAOS) V2 — "The Scaffold" for GitHub Copilot CLI. Use when user says "install Ragnar-AgenticOS", "install RAOS v2", "set up my Agentic OS", or invokes this file. V2 adds a durable harness layer on top of V1: run manifests in .agentic-os/runs/, an evaluator agent with manual isolation, prompt-level checkpointing and tracing (hooks not available on Copilot CLI), scheduler templates (launchd/Task Scheduler/GitHub Actions) for headless runs, and /raos resume|runs|kill subcommands. Everything V1 did still works — V2 is additive and back-compatible. See UPGRADE.md for migration details.
 trigger: "install Ragnar-AgenticOS", "install Ragnar-AgenticOS v2", "set up my Agentic OS", "install RAOS", "install RAOS v2", "setup RAOS v2.0", "Ragnar-AgenticOS-setup", "upgrade to RAOS v2"
-context: fork
-agent: general-purpose
 ---
 
 # Ragnar's Agentic OS. Factory Setup v2.0 — The Scaffold
@@ -203,10 +508,10 @@ The blueprint itself is embedded in this file. No sibling folder, no repo clone,
 
 ## What this installs
 
-When invoked, this file makes your AI assistant (GitHub Copilot CLI or GitHub Copilot CLI) do the following, in order:
+When invoked, this file makes your AI assistant (GitHub Copilot CLI) do the following, in order:
 
 1. **Ask for a name.** Three short questions: skill slug, display name, wake-up phrase.
-2. **Detect the runtime.** GitHub Copilot CLI (`~/.github/`), GitHub Copilot CLI (`~/.github/`), or both.
+2. **Detect the runtime.** GitHub Copilot CLI (`~/.github/`).
 3. **Write the skill.** 23 blueprint files (SKILL.md, slash command, 4 references, 5 recipes, 5 templates, 6 specialist agents + catalog) land under the user's chosen skill name.
 4. **Wire the global boot.** Appends a named auto-boot block to the runtime's global instructions so the user's OS wakes up with their chosen phrase.
 5. **Set up local memory.** Creates `.agentic-os/` in the current project for local learnings + routine detection.
@@ -250,7 +555,7 @@ You are about to run the RAOS factory. The user has invoked this file. Do the fo
 
 ### Step 0: Preserve main-conversation context (belt-and-suspenders)
 
-This file's frontmatter declares `context: fork` + `agent: general-purpose` so a supporting runtime runs the install in an isolated sub-agent. If your runtime honors that, great. If it does not (older Copilot CLI, custom host, etc.), apply the same discipline manually: dispatch the heavy install work (file parsing, Write calls, directory scans) through the Agent tool with `subagent_type: general-purpose`, and surface only the final install report back to the main conversation. Never dump the 23 embedded files' contents into the main context. Parse them from THIS file, write them to disk, report counts.
+This file's frontmatter declares `` + `` so a supporting runtime runs the install in an isolated sub-agent. If your runtime honors that, great. If it does not (older Copilot CLI, custom host, etc.), apply the same discipline manually: dispatch the heavy install work (file parsing, Write calls, directory scans) through the Agent tool with `subagent_type: general-purpose`, and surface only the final install report back to the main conversation. Never dump the 23 embedded files' contents into the main context. Parse them from THIS file, write them to disk, report counts.
 
 ### Step 1: Greet the user, then ask them to name their OS
 
@@ -309,7 +614,7 @@ Everywhere below you see `<OS_NAME>`, `<OS_DISPLAY>`, `<OS_BOOT_PHRASE>`, substi
 Check which AI CLI environments are present on this machine.
 
 ```
-COPILOT_CLI_HOME = ~/.github/
+COPILOT_HOME = ~/.github/
 COPILOT_CLI_HOME = ~/.github/
 ```
 
@@ -467,7 +772,7 @@ Do not run `/<OS_NAME>` automatically. The user invokes it when ready. Installat
 - **Version:** 1.09
 - **Date:** 2026-04-19
 - **Changelog since 1.00:** cross-CLI install, self-improvement protocol, `.agentic-os/` local memory, global auto-boot wiring, 23-file embedded blueprint, idempotent upgrade.
-- **v1.08:** added `context: fork` + `agent: general-purpose` to the installer and the bootstrapped SKILL.md so install-time and objective-run tool calls happen in isolated sub-agent context.
+- **v1.08:** added `` + `` to the installer and the bootstrapped SKILL.md so install-time and objective-run tool calls happen in isolated sub-agent context.
 - **v1.09:** factory model. Each teammate names their own OS (`<OS_NAME>`, `<OS_DISPLAY>`, `<OS_BOOT_PHRASE>`); the installer personalizes the embedded blueprint (SKILL.md name/title, slash command filename) before writing it to disk under that name. Auto-boot and self-improvement blocks are now keyed by `name=<OS_NAME>` so multiple OSes can coexist on the same machine without collision.
 
 When Ragnar ships a newer version (e.g., v1.10), teammates whose `.agentic-os/version.txt` reads `1.09` get prompted to re-run the newer installer and pull the upstream improvements.
@@ -495,8 +800,8 @@ Below, each RAOS blueprint file is embedded between sentinel markers. Parse them
 ---
 name: raos
 description: Ragnar's Agentic OS. Use when the user says "Ragnar-AgenticOS", "set up my AI team", "bootstrap an agentic team in this project", "make this project objective-oriented", or invokes /raos. Moves a project from task-oriented prompting (Stage 1) to team-based decomposition (Stage 2) and, when the team is ready, to objective-driven delivery (Stage 3). Works in pure GitHub Copilot CLI: no npm, no repo clone, no external dependencies.
-context: fork
-agent: general-purpose
+
+
 ---
 
 # RAOS: Ragnar's Agentic OS
@@ -547,7 +852,7 @@ Goal: create a project-specific team in under 5 minutes. Four steps.
 
 Ask the user in one batched prompt. Keep it short. Skip any question whose answer is obvious from reading CWD files.
 
-1. **What is this project?** (one sentence, becomes CLAUDE.md line 1)
+1. **What is this project?** (one sentence, becomes instructions.md line 1)
 2. **Who is it for?** (internal tool, customer-facing, team-only, etc.)
 3. **What stage is it at?** (greenfield / building / maintaining / rewriting)
 4. **What's the tech stack?** (skip if inferable from package.json / pyproject.toml)
@@ -577,7 +882,7 @@ Based on the answers, create these files in the project (not the skill folder):
 
 ```
 <project>/
-├── CLAUDE.md                   ← from templates/CLAUDE.md.template, filled in
+├── instructions.md                   ← from templates/instructions.md.template, filled in
 ├── .github/
 │   ├── agents/
 │   │   ├── cli-lead.md         ← the team lead, from templates/team-lead.agent.md
@@ -642,7 +947,7 @@ Before reporting the objective as done, run the "verification checklist" from `t
 
 ## Integration recipes (the patterns Ragnar uses in real work)
 
-These are drop-in patterns. Each is self-contained, < 4KB, linked from `CLAUDE.md` when the relevant integration is active.
+These are drop-in patterns. Each is self-contained, < 4KB, linked from `instructions.md` when the relevant integration is active.
 
 - **[ADO/Azure DevOps work tracking](references/recipes/ado-tracking.md)**. two-bucket autonomous/guidance pattern. Close items with code evidence, escalate priority changes.
 - **[Power Platform auth gating](references/recipes/pac-auth-gate.md)**. before any Power Platform write, verify auth profile. MCP-gated.
@@ -654,7 +959,7 @@ These are drop-in patterns. Each is self-contained, < 4KB, linked from `CLAUDE.m
 
 ## Guardrails (always on, in every bootstrapped team)
 
-These rules are copied into every `CLAUDE.md` RAOS generates. They survive the whole session.
+These rules are copied into every `instructions.md` RAOS generates. They survive the whole session.
 
 1. **No destructive git without approval.** Force push, reset --hard, branch -D, checkout --, clean -f. all require explicit user confirmation, every time.
 2. **No production writes without auth verification.** For Power Platform / Azure / production APIs, call the auth-check tool first. If unverified, refuse.
@@ -680,14 +985,14 @@ These rules are copied into every `CLAUDE.md` RAOS generates. They survive the w
 
 | Symptom | Fix |
 |---|---|
-| `/raos` doesn't appear as a command | Restart GitHub Copilot CLI session. Skill must be in `~/.github/skills/raos/`. |
-| Bootstrap skipped CLAUDE.md | User is in a repo that already had one. read it, don't overwrite. Offer to append. |
+| `/raos` doesn't appear as a command | Restart Copilot CLI session. Skill must be in `~/.github/skills/raos/`. |
+| Bootstrap skipped instructions.md | User is in a repo that already had one. read it, don't overwrite. Offer to append. |
 | Integration agent needs auth and fails | Run the agent's setup block (e.g., `az login`, `pac auth create`, `gh auth login`). Each integration agent documents its prereq. |
 | Objective runs too long | User is typing tasks disguised as objectives. Reformat via `templates/objective.template.md` and re-confirm. |
-| Team Lead keeps asking permission | The bucket classification is too conservative. Move more actions into the autonomous bucket via CLAUDE.md. |
+| Team Lead keeps asking permission | The bucket classification is too conservative. Move more actions into the autonomous bucket via instructions.md. |
 | Teammate can't install | `tar -czf raos.tar.gz ~/.github/skills/raos/` → send file → extract into their `~/.github/skills/`. No other steps. |
 | Stage 3 feels risky | Stay in Stage 2 longer. Build trust in the team. Stage 3 is earned, not configured. |
-| `/raos reset` wiped work | It was confirmed. Recover `.github/agents/` from git. This is why CLAUDE.md + agents should be committed. |
+| `/raos reset` wiped work | It was confirmed. Recover `.github/agents/` from git. This is why instructions.md + agents should be committed. |
 | Agent conflicts on the same file | Two agents touching one file is a bug. Team Lead enforces single-owner-per-file. if it happens, route through cli-lead. |
 | User still asks "how do I prompt?" | They're in Stage 1. Walk them through one objective end-to-end. Let them see the team work. |
 
@@ -695,7 +1000,7 @@ These rules are copied into every `CLAUDE.md` RAOS generates. They survive the w
 
 ## Compatibility
 
-Pure GitHub Copilot CLI. No npm. No repo clone. No tmux required. No GitHub Copilot CLI needed. The skill is self-contained in `~/.github/skills/raos/`. Share it by tarballing the folder.
+Pure GitHub Copilot CLI. No npm. No repo clone. No tmux required. The skill is self-contained in `~/.github/skills/raos/`. Share it by tarballing the folder.
 
 If the teammate wants the advanced Ragnar-Claw execution engine (parallel workers with explicit model routing, tmux panels, TypeScript runtime). point them at the V2 installer. RAOS works standalone without it.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
@@ -880,7 +1185,7 @@ Why: user mental model stays simple. "I set the goal. The team runs it." If the 
 
 ### 2. The Team Lead auto-approves within the autonomous bucket
 
-The user defines the autonomous and guidance buckets once, in CLAUDE.md, during bootstrap. After that, cli-lead makes decisions without asking, as long as they're in the autonomous bucket.
+The user defines the autonomous and guidance buckets once, in instructions.md, during bootstrap. After that, cli-lead makes decisions without asking, as long as they're in the autonomous bucket.
 
 - Reading files? Autonomous.
 - Running tests? Autonomous.
@@ -944,7 +1249,7 @@ Speed is a feature. Objective-oriented execution only pays off if it's dramatica
 
 When a task has no dependency on another, dispatch both at the same time.
 
-In GitHub Copilot CLI: multiple Agent tool calls in a single message run concurrently. Use that. The Team Lead should favor breadth over depth whenever the work is parallelizable.
+The Team Lead should favor breadth over depth whenever the work is parallelizable.
 
 Examples of work that is usually parallelizable:
 - Research across different areas of a codebase (one Explore agent per area).
@@ -1000,7 +1305,7 @@ Parallel dispatch burns tokens faster. Usually worth it. user attention is more 
 - Not dispatch specialists whose output is redundant ("get three opinions" is rarely worth 3x the cost).
 - Reuse Explore output from Research in Synthesis rather than re-reading.
 
-If the user is on a tight budget (noted in CLAUDE.md), the Team Lead can downgrade to sequential dispatch. That's a user preference, not a default.
+If the user is on a tight budget (noted in instructions.md), the Team Lead can downgrade to sequential dispatch. That's a user preference, not a default.
 
 ---
 
@@ -1018,7 +1323,7 @@ If you catch yourself doing it sequentially when the tasks are independent, stop
 
 **When to use:** Project has an Azure DevOps backlog. Agents need to sync work items with code state (close items, update status, link commits).
 
-**Plug into your team lead:** Add to `CLAUDE.md`:
+**Plug into your team lead:** Add to `instructions.md`:
 
 ```
 - Azure DevOps integration active. The `ado` specialist owns work item sync.
@@ -1075,7 +1380,7 @@ Closed based on code evidence:
 - Tests: <status>
 - Epic rollup: #<epic number>
 
-Closure performed autonomously per CLAUDE.md. Flag via /raos if incorrect.
+Closure performed autonomously per instructions.md. Flag via /raos if incorrect.
 ```
 
 Why the "flag via /raos" line: gives the user a one-command escape if the specialist got it wrong. Preserves two-bucket trust.
@@ -1099,7 +1404,7 @@ This is the two-bucket rule working. Evidence-backed = autonomous. Ambiguous = g
 
 **When to use:** Building D365-connected Copilot Studio agents that enforce business rules. Rules change faster than code can ship. Business users want to change agent behavior without engineering.
 
-**Plug into your team lead:** Add to `CLAUDE.md`:
+**Plug into your team lead:** Add to `instructions.md`:
 
 ```
 - Niyam pattern active. Policies live in Dataverse tables (cr023_policy,
@@ -1158,7 +1463,7 @@ No prompts changed. Change a row → change the behavior. Disable a row → remo
 When a project opts into Dataverse + Copilot Studio at bootstrap:
 
 - The `dataverse` specialist gets a copy of this recipe in `.github/agents/dataverse.agent.md` (as a reference link).
-- CLAUDE.md notes the Niyam pattern is active.
+- instructions.md notes the Niyam pattern is active.
 - The `copilot-studio` specialist knows to route policy logic to Dataverse queries, not to topic YAML.
 
 ---
@@ -1193,7 +1498,7 @@ For full Niyam skill: `~/.github/skills/niyam-agent-template/SKILL.md`. RAOS poi
 
 **When to use:** Project touches Power Platform environments (Dataverse tables, Copilot Studio agents, Power Automate flows, solution imports). You care about not writing to the wrong tenant.
 
-**Plug into your team lead:** Add to `CLAUDE.md`:
+**Plug into your team lead:** Add to `instructions.md`:
 
 ```
 - Power Platform integration active. The `pac-cli` specialist owns auth.
@@ -1208,7 +1513,7 @@ For full Niyam skill: `~/.github/skills/niyam-agent-template/SKILL.md`. RAOS poi
 
 Every Power Platform write goes through these steps:
 
-1. **Declare the expected environment.** In CLAUDE.md, name it: `Expected PP environment: <env name or URL>`. Or the user confirms during objective parsing.
+1. **Declare the expected environment.** In instructions.md, name it: `Expected PP environment: <env name or URL>`. Or the user confirms during objective parsing.
 2. **Check the active profile.** `pac-cli` calls `mcp__pac-cli__auth_who` (or `pac auth who`).
 3. **Compare.** If active profile's environment == expected → proceed. If not → halt.
 4. **On mismatch:** do NOT call `pac auth select` automatically. Surface to cli-lead: "Active environment is X, expected Y. Proceed with X? Select profile for Y? Abort?" cli-lead asks the user.
@@ -1228,7 +1533,7 @@ Every Power Platform write goes through these steps:
 
 Power Platform environments look alike. Dev and Prod URLs differ by one word. Silent profile switches have deleted customer data. Fail-closed is cheap insurance.
 
-If the user finds the halt annoying, they can codify "for this project, always work in env X" in CLAUDE.md and then the pac-cli specialist can auto-switch to X at session start. but even then, only to the ONE declared env, never to something else.
+If the user finds the halt annoying, they can codify "for this project, always work in env X" in instructions.md and then the pac-cli specialist can auto-switch to X at session start. but even then, only to the ONE declared env, never to something else.
 
 ---
 
@@ -1373,7 +1678,7 @@ Exploratory work ("I don't know what I want yet") doesn't need this. you don't h
 
 **When to use:** Every project. This is the core safety + autonomy trade-off that makes objective-oriented execution possible without destroying anything.
 
-**Plug into your team lead:** RAOS bakes this into every bootstrapped CLAUDE.md automatically. You don't have to add it. but you can customize the buckets.
+**Plug into your team lead:** RAOS bakes this into every bootstrapped instructions.md automatically. You don't have to add it. but you can customize the buckets.
 
 ---
 
@@ -1433,7 +1738,7 @@ When uncertain, default to guidance. The cost of a one-line "proceed?" is low. T
 
 ## Customizing per project
 
-In CLAUDE.md, you can expand or tighten the buckets:
+In instructions.md, you can expand or tighten the buckets:
 
 ```
 ## Autonomous bucket. AI can do without asking
@@ -1539,7 +1844,7 @@ Now you say "build the feature," not "write the function." The AI reads your pro
 You still own the plan. You still approve the work. But you stop writing task by task. You describe what you want; the AI figures out how to break it down.
 
 **What makes Stage 2 work:**
-- A `CLAUDE.md` at the project root that tells every agent what the project is.
+- A `instructions.md` at the project root that tells every agent what the project is.
 - Sub-agents in `.github/agents/` with clear names and ownership.
 - A skills library that encodes how your team actually works.
 - Git worktrees for parallel streams.
@@ -1561,7 +1866,7 @@ At this stage the agents coordinate with each other, not just with you. They sha
 What you own shrinks to two things: **the objective** and **the guardrails**. What does success look like? What is not allowed to break? Everything else is the team's job.
 
 **What makes Stage 3 work:**
-- Agent Teams (GitHub Copilot CLI's newest multi-agent capability).
+- Agent Teams (multi-agent orchestration).
 - Evals so the team knows when it's done.
 - Verification loops so the team can self-check.
 - Guardrails on what the team can touch (tool allowlists, permission gates, two-bucket approval).
@@ -1604,7 +1909,7 @@ If you are in Stage 1, here is the move.
 
 **This week:** Install RAOS in one project. Let it bootstrap a team. Describe a project, not a task. Let the team decompose it. Review the merged output, not the intermediate steps.
 
-**This month:** Write a `CLAUDE.md` for your main project. Codify one skill you use every day. Create one specialist agent that does work you keep repeating.
+**This month:** Write a `instructions.md` for your main project. Codify one skill you use every day. Create one specialist agent that does work you keep repeating.
 
 **This quarter:** Run a real project through Stage 2 end to end. Measure how much faster. Measure how much less you typed. Then describe the next project as an objective, not a feature list.
 
@@ -1613,7 +1918,7 @@ We are all in Stage 1 today. RAOS is the bridge to Stage 2. Stage 3 is the desti
 If you want to go there, this is your way to start here.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START templates/CLAUDE.md.template
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START templates/instructions.md.template
 # {{PROJECT_NAME}}
 
 {{ONE_SENTENCE_DESCRIPTION}}
@@ -1814,7 +2119,7 @@ Closed based on code evidence:
 - Tests: <passing count or 'N/A'>
 - Epic rollup: #<epic>
 
-Closure performed autonomously per CLAUDE.md. Flag via /raos if incorrect.
+Closure performed autonomously per instructions.md. Flag via /raos if incorrect.
 ```
 
 ## Bucket classification
@@ -1885,7 +2190,7 @@ You own Azure resource operations for this project.
 
 Before any Azure write:
 1. `az account show`. confirm subscription and tenant.
-2. Compare to expected (from CLAUDE.md or current objective).
+2. Compare to expected (from instructions.md or current objective).
 3. Mismatch → halt. Return to cli-lead with the delta.
 
 Even read operations on sensitive stores (Key Vault with secrets) surface the active subscription first.
@@ -1909,7 +2214,7 @@ Common patterns:
 - All read operations (list, show, describe).
 - `az account show`, `az account list-locations`.
 - Bicep template linting and what-if previews.
-- Deployments to dev/staging subs where declared in CLAUDE.md.
+- Deployments to dev/staging subs where declared in instructions.md.
 - Reading Key Vault secret *references* (not values).
 
 **Guidance:**
@@ -1988,7 +2293,7 @@ Invoke these via the Skill tool, not by copying their logic.
 
 ## The Niyam-aware pattern (when enabled)
 
-If CLAUDE.md says Niyam is active:
+If instructions.md says Niyam is active:
 - Route all policy logic to Dataverse queries (the dataverse specialist handles tables).
 - Don't hardcode policies in topic YAML. read them at runtime.
 - Every rule-driven decision must write a cr023_audit row (dataverse handles the write).
@@ -2065,7 +2370,7 @@ You own Dataverse table metadata and row operations for this project.
 
 ## The Niyam pattern (when active)
 
-If CLAUDE.md declares Niyam active, you know:
+If instructions.md declares Niyam active, you know:
 - Policies live as rows, not prompts. Changing a rule = upsert a row.
 - Every policy-driven decision writes a cr023_audit row.
 - cr023_exception rows grant scoped relief from policies (always with expiry).
@@ -2216,7 +2521,7 @@ gh pr create --title "<short title under 70 chars>" --body "$(cat <<'EOF'
 - [ ] <test step>
 - [ ] <test step>
 
-🤖 Generated with [GitHub Copilot CLI](https://claude.com/claude-code)
+🤖 Generated for GitHub Copilot CLI
 EOF
 )"
 ```
@@ -2262,7 +2567,7 @@ You own Power Platform CLI operations for this project. Auth, solutions, environ
 Before ANY Power Platform write operation, you:
 
 1. Run `mcp__pac-cli__auth_who` (or `pac auth who`).
-2. Compare active environment to the expected one (from CLAUDE.md or the current objective).
+2. Compare active environment to the expected one (from instructions.md or the current objective).
 3. If match → proceed.
 4. If mismatch → HALT. Do not call `pac auth select` automatically. Return to cli-lead: "Active env is X, expected Y. Proceed with X? Select profile for Y? Abort?"
 
@@ -2594,7 +2899,7 @@ When handing off work to another specialist, update the task's `coordinates_with
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START templates/team-lead.agent.md
 ---
 name: cli-lead
-description: Team Lead for this project's Agentic OS. The user only talks to me. I read objectives, decompose them into 3-phase plans (Research → Challenge → Synthesis), dispatch specialists in parallel, and deliver verified results. I own the shared task list in .github/tasks.json and enforce the guardrails from CLAUDE.md.
+description: Team Lead for this project's Agentic OS. The user only talks to me. I read objectives, decompose them into 3-phase plans (Research → Challenge → Synthesis), dispatch specialists in parallel, and deliver verified results. I own the shared task list in .github/tasks.json and enforce the guardrails from instructions.md.
 tools: Read, Write, Edit, Bash, Glob, Grep, TodoWrite, Agent, Skill
 ---
 
@@ -2606,14 +2911,14 @@ You are the Team Lead for this project. The user invokes you through `/raos` or 
 
 You are the only agent the user speaks to. Every specialist in `.github/agents/` reports to you. Your job is to translate objectives into coordinated action and deliver results, not drafts.
 
-You are calm, fast, and specific. You never ask the user to decompose their own objective. You never hand back a draft when a finished result is possible. You never break the guardrails in CLAUDE.md.
+You are calm, fast, and specific. You never ask the user to decompose their own objective. You never hand back a draft when a finished result is possible. You never break the guardrails in instructions.md.
 
 ## What you own
 
 1. **The shared task list**. `.github/tasks.json`. Every phase and handoff updates it. Users check state via `/raos status`.
 2. **Specialist composition**. you decide which of the agents in `.github/agents/` to dispatch for a given objective, and in what order.
 3. **The 3-phase execution pattern**. Research → Challenge → Synthesis. Skip a phase only with written justification.
-4. **Guardrails**. the rules in CLAUDE.md are never bent for speed. If an action is in the "guidance" bucket, you ask. Always.
+4. **Guardrails**. the rules in instructions.md are never bent for speed. If an action is in the "guidance" bucket, you ask. Always.
 
 ## How you accept work
 
@@ -2656,7 +2961,7 @@ When uncertain, default to guidance. The cost of a one-line confirmation is low;
 
 ## Integration awareness
 
-If CLAUDE.md lists active integrations (Power Platform, Dataverse, Azure, GitHub, ADO, Copilot Studio), you route integration-related work to the matching specialist in `.github/agents/`. Don't reimplement. The specialists know their surface; you coordinate.
+If instructions.md lists active integrations (Power Platform, Dataverse, Azure, GitHub, ADO, Copilot Studio), you route integration-related work to the matching specialist in `.github/agents/`. Don't reimplement. The specialists know their surface; you coordinate.
 
 Before any production-affecting action on an integrated system, verify auth. For Power Platform / Dataverse: the pac-cli specialist owns auth checks. For Azure: the azure specialist. Ask them first, don't assume.
 
@@ -2681,173 +2986,2748 @@ You are the Team Lead. The user set the direction. Now compose the team and deli
 
 ---
 
-**End of embedded files.** Total: 23 blueprint files.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/context-window-management.md
+# Context Window Management
+
+## Problem
+
+Agents lose critical context in long conversations. The context window fills with tool output, intermediate reasoning, and stale information. By the time the agent needs to make a decision, the original task description and key decisions have been pushed out.
+
+## Core Pattern: HEAD | COMPRESSED MIDDLE | TAIL
+
+Structure the context window into three zones:
+
+```
+┌─────────────────────────────────┐
+│ HEAD (pinned, never compressed) │
+│ - System prompt                 │
+│ - Active Task block             │
+│ - Key constraints/rules         │
+├─────────────────────────────────┤
+│ COMPRESSED MIDDLE (summaries)   │
+│ - Turn summaries (not raw)      │
+│ - Decision log                  │
+│ - Error log                     │
+├─────────────────────────────────┤
+│ TAIL (last N turns, verbatim)   │
+│ - Recent tool calls + results   │
+│ - Current working state         │
+│ - Last 3-5 exchanges            │
+└─────────────────────────────────┘
+```
+
+## Active Task Block
+
+Always maintain this structure at the top of context. Update it every turn.
+
+```
+## Active Task
+**Objective:** Migrate user auth from JWT to session-based auth
+**Current Step:** Updating middleware to check session store
+**Blocked On:** Nothing
+**Completed:**
+- [x] Designed session schema
+- [x] Implemented session store (Redis)
+- [ ] Updated middleware
+- [ ] Updated login/logout endpoints
+- [ ] Updated tests
+**Key Decisions:**
+- Using Redis (not DB) for sessions — latency requirement <5ms
+- Session TTL: 24h with sliding expiration
+- Keeping JWT for API-to-API calls, sessions for browser only
+```
+
+## When to Compress
+
+Trigger compression when token usage exceeds 80% of the context window:
+
+```python
+def should_compress(current_tokens, max_tokens):
+    return current_tokens > max_tokens * 0.80
+
+# Model-specific thresholds
+THRESHOLDS = {
+    "claude-sonnet-4-20250514": int(200_000 * 0.80),   # 160K
+    "gpt-4o":          int(128_000 * 0.80),   # 102K
+    "claude-3-haiku":  int(200_000 * 0.80),   # 160K
+}
+```
+
+## What to Preserve vs Discard
+
+Priority order (highest first):
+
+| Priority | Category | Action |
+|----------|----------|--------|
+| 1 | Decisions made | Always preserve with rationale |
+| 2 | Errors encountered | Preserve — prevents loops |
+| 3 | Current file state | Preserve paths + key content |
+| 4 | Constraints/requirements | Keep in Active Task block |
+| 5 | Successful tool outputs | Compress to 1-line summary |
+| 6 | Raw file contents | Discard — re-read if needed |
+| 7 | Intermediate reasoning | Discard entirely |
+
+## Compression Implementation
+
+```python
+def compress_turns(turns: list[dict]) -> str:
+    """Compress a batch of turns into a summary block."""
+    # Group by activity
+    decisions = []
+    errors = []
+    files_modified = set()
+    
+    for turn in turns:
+        if "decided" in turn["content"].lower() or "choosing" in turn["content"].lower():
+            decisions.append(extract_decision(turn))
+        if turn.get("tool_result", {}).get("exit_code", 0) != 0:
+            errors.append(summarize_error(turn))
+        files_modified.update(extract_file_paths(turn))
+    
+    summary = f"""## Compressed: Turns {turns[0]['index']}-{turns[-1]['index']}
+**Actions taken:** {len(turns)} turns of work
+**Files modified:** {', '.join(files_modified)}
+**Decisions:** {'; '.join(decisions) if decisions else 'None'}
+**Errors hit:** {'; '.join(errors) if errors else 'None'}
+"""
+    return summary
+```
+
+## Before/After Example
+
+### Before Compression (raw turns eating 40K tokens):
+
+```
+Turn 12: [assistant] Let me read the auth middleware file...
+Turn 13: [tool_result] <2000 lines of middleware.js>
+Turn 14: [assistant] I see the issue. The JWT verification is on line 47...
+Turn 15: [tool_call] patch middleware.js ...
+Turn 16: [tool_result] File patched successfully
+Turn 17: [assistant] Now let me run the tests...
+Turn 18: [tool_result] FAIL: 3 tests failed - session not found
+Turn 19: [assistant] The Redis connection isn't initialized. Let me fix...
+Turn 20: [tool_call] patch redis-client.js ...
+Turn 21: [tool_result] File patched successfully
+Turn 22: [assistant] Running tests again...
+Turn 23: [tool_result] PASS: all 47 tests pass
+```
+
+### After Compression (~500 tokens):
+
+```
+## Compressed: Turns 12-23
+**Actions taken:** 12 turns of middleware migration work
+**Files modified:** middleware.js, redis-client.js
+**Decisions:** JWT check replaced with session lookup on line 47
+**Errors hit:** Redis connection not initialized before middleware runs — fixed by moving init to app startup
+**Outcome:** All 47 tests passing
+```
+
+## Integration Pattern
+
+```python
+class ContextManager:
+    def __init__(self, max_tokens: int):
+        self.max_tokens = max_tokens
+        self.head = []        # Pinned messages
+        self.compressed = []  # Summary blocks
+        self.tail = []        # Recent verbatim turns
+        self.active_task = {} # Current task state
+    
+    def add_turn(self, turn: dict):
+        self.tail.append(turn)
+        current = self.count_tokens()
+        if current > self.max_tokens * 0.80:
+            # Compress oldest half of tail
+            to_compress = self.tail[:len(self.tail)//2]
+            self.tail = self.tail[len(self.tail)//2:]
+            summary = compress_turns(to_compress)
+            self.compressed.append(summary)
+    
+    def build_context(self) -> list[dict]:
+        return self.head + self.compressed + self.tail
+    
+    def update_active_task(self, **kwargs):
+        self.active_task.update(kwargs)
+        # Active task is always in head[1] (after system prompt)
+        self.head[1] = {"role": "system", "content": format_active_task(self.active_task)}
+```
+
+## Rules for Agents
+
+1. **Never let the Active Task block go stale.** Update it after every meaningful action.
+2. **Re-read files instead of preserving raw content.** File reads are cheap; context space is not.
+3. **Log decisions explicitly.** "I chose X because Y" survives compression. Implicit reasoning does not.
+4. **Compress proactively.** Don't wait for the context to overflow — compress at 80%.
+5. **Errors are more valuable than successes.** A successful `npm install` can be discarded. A failed one with the error message must be preserved.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/delegation-contracts.md
+# Delegation Contracts
+
+## Problem
+
+Complex tasks require decomposition. A single agent trying to do everything loses focus, fills its context, and makes compounding errors. Delegation lets a parent agent break work into isolated subtasks.
+
+## Core Pattern: Parent → Contract → Child → Summary
+
+```
+Parent Agent
+  ├── defines contract
+  ├── spawns child with fresh context
+  ├── child executes in isolation
+  ├── child returns structured summary
+  └── parent integrates result (never sees child's reasoning)
+```
+
+## The Delegation Contract
+
+Every delegation is defined by a contract object:
+
+```python
+contract = {
+    "task": "Write unit tests for the UserService class",
+    "context": {
+        "file_paths": ["src/services/user-service.ts"],
+        "test_framework": "vitest",
+        "coverage_target": "all public methods",
+        "existing_patterns": "see src/services/__tests__/auth-service.test.ts"
+    },
+    "allowed_tools": [
+        "read_file",
+        "write_file",
+        "patch",
+        "search_files",
+        "terminal"  # for running tests
+    ],
+    "blocked_tools": [
+        "dispatch_agent",   # no further delegation
+        "memory_write",     # no modifying shared memory
+        "message_user"      # no direct user communication
+    ],
+    "max_iterations": 25,
+    "max_cost": 0.50,       # USD budget limit
+    "expected_output": {
+        "format": "summary",
+        "fields": ["files_created", "files_modified", "test_count", "all_passing", "issues"]
+    },
+    "timeout_seconds": 300
+}
+```
+
+## Isolation Model
+
+Children operate in complete isolation:
+
+| Property | Parent | Child |
+|----------|--------|-------|
+| Context | Full conversation history | Only contract + task context |
+| Session | Main session | Fresh ephemeral session |
+| Tools | All tools | Only allowed_tools |
+| Memory | Read + write | Read only (or none) |
+| Delegation | Can delegate | Cannot delegate (depth=0) |
+| User comms | Can message user | Cannot message user |
+| State DB | Shared | Own temporary state |
+
+### Why Isolation Matters
+
+- **Fresh context:** Child gets 100% of its context window for the task.
+- **No contamination:** Child's failed attempts don't pollute parent's reasoning.
+- **Predictable cost:** Budget cap prevents runaway spending.
+- **Clean interface:** Parent integrates a summary, not 50 turns of trial and error.
+
+## Depth Limits
+
+```
+Orchestrator (depth=2)
+  └── Architect (depth=1)
+        ├── Builder A (depth=0) — cannot delegate
+        ├── Builder B (depth=0) — cannot delegate
+        └── Builder C (depth=0) — cannot delegate
+```
+
+**Hard rule:** `max_depth = 2`. Children at depth 0 cannot call `dispatch_agent`. This prevents:
+- Infinite delegation chains
+- Cost explosion from recursive spawning
+- Debugging nightmares
+
+## Parent-Child Communication
+
+The parent NEVER sees:
+- The child's intermediate reasoning
+- Tool call details or raw outputs
+- Failed attempts or retries
+
+The parent ONLY sees the structured summary:
+
+```json
+{
+    "status": "completed",
+    "files_created": ["src/services/__tests__/user-service.test.ts"],
+    "files_modified": [],
+    "test_count": 12,
+    "all_passing": true,
+    "issues": [],
+    "tokens_used": {"input": 45000, "output": 8200},
+    "cost_usd": 0.31,
+    "iterations": 8
+}
+```
+
+## Failure Modes and Handling
+
+```python
+def handle_child_result(result: dict) -> str:
+    match result["status"]:
+        case "completed":
+            return integrate_result(result)
+        
+        case "timeout":
+            # Child exceeded timeout_seconds
+            # Partial work may exist on disk
+            return "Child timed out. Check partial output, retry with simpler scope."
+        
+        case "budget_exceeded":
+            # Hit max_cost before finishing
+            return "Budget exceeded. Review partial work, consider breaking task further."
+        
+        case "max_iterations":
+            # Likely stuck in a loop
+            return "Child hit iteration limit. Task may be too complex or ambiguous."
+        
+        case "error":
+            # Unrecoverable error
+            return f"Child failed: {result['error']}. Retry or reassign."
+```
+
+## Example: Architect Delegates to 3 Parallel Builders
+
+```python
+# Parent: Architect agent planning a feature
+
+# Step 1: Plan the decomposition
+subtasks = [
+    {
+        "task": "Implement database migration for orders table",
+        "context": {"schema_design": "...", "db": "postgresql"},
+        "allowed_tools": ["read_file", "write_file", "terminal"],
+        "max_iterations": 15,
+        "max_cost": 0.30
+    },
+    {
+        "task": "Implement OrderService with CRUD operations",
+        "context": {"interface": "...", "depends_on": "orders table migration"},
+        "allowed_tools": ["read_file", "write_file", "patch", "search_files", "terminal"],
+        "max_iterations": 20,
+        "max_cost": 0.40
+    },
+    {
+        "task": "Implement REST endpoints for /api/orders",
+        "context": {"service_interface": "...", "auth": "session-based", "framework": "express"},
+        "allowed_tools": ["read_file", "write_file", "patch", "search_files", "terminal"],
+        "max_iterations": 20,
+        "max_cost": 0.40
+    }
+]
+
+# Step 2: Dispatch (can be parallel if no dependencies)
+results = []
+# Task 1 must complete before 2 and 3 (they depend on the schema)
+result_1 = dispatch_agent(subtasks[0])
+assert result_1["status"] == "completed"
+
+# Tasks 2 and 3 can run in parallel
+result_2, result_3 = dispatch_parallel([subtasks[1], subtasks[2]])
+
+# Step 3: Integrate
+for r in [result_1, result_2, result_3]:
+    if r["status"] != "completed":
+        handle_failure(r)
+
+# Step 4: Run integration tests (parent does this, not children)
+run_integration_tests()
+```
+
+## Contract Design Rules
+
+1. **Be specific about scope.** "Write tests" is bad. "Write unit tests for UserService covering all public methods" is good.
+2. **Provide file paths.** Don't make the child search for things the parent already knows.
+3. **Set realistic iteration limits.** Simple tasks: 10-15. Complex tasks: 20-30. Never >50.
+4. **Include existing patterns.** Point to a reference file the child can follow.
+5. **Define success criteria.** "all_passing: true" is a verifiable exit condition.
+6. **Budget conservatively.** If you think it costs $0.30, set limit at $0.50.
+
+## Anti-Patterns
+
+- **Over-delegation:** Don't delegate a 2-minute task. The contract overhead isn't worth it.
+- **Vague contracts:** "Make it work" leads to confused children and wasted budget.
+- **No allowed_tools list:** Always be explicit. Default-open is dangerous.
+- **Reading child reasoning:** If you're parsing child intermediate output, your contract is wrong.
+- **Deep chains:** If you need depth > 2, redesign the decomposition to be flatter.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/session-persistence.md
+# Session Persistence
+
+## Problem
+
+Agents start every conversation from zero. They repeat mistakes, re-discover solutions, and lose all institutional knowledge between sessions. A human developer remembers "we tried approach X last week and it failed because Y." Agents don't — unless you build persistence.
+
+## Core Pattern: SQLite + FTS5
+
+Use SQLite with full-text search to store conversation history, decisions, and learnings across sessions.
+
+```
+┌──────────────┐     ┌──────────────────┐
+│   sessions   │────→│    messages       │
+│ id           │     │ session_id (FK)   │
+│ title        │     │ role              │
+│ created_at   │     │ content           │
+│ parent_id    │     │ tokens            │
+│ status       │     │ created_at        │
+│ summary      │     └──────────────────┘
+└──────────────┘              │
+                              ▼
+                    ┌──────────────────┐
+                    │ messages_fts     │
+                    │ (FTS5 virtual)   │
+                    │ content indexed  │
+                    └──────────────────┘
+```
+
+## Schema
+
+```sql
+CREATE TABLE sessions (
+    id TEXT PRIMARY KEY,           -- UUID
+    title TEXT NOT NULL,           -- Human-readable description
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    parent_id TEXT REFERENCES sessions(id),  -- For session chaining
+    status TEXT DEFAULT 'active',  -- active, completed, abandoned
+    summary TEXT,                  -- Post-session summary
+    objective TEXT,                -- What this session aimed to do
+    tags TEXT                      -- Comma-separated tags for filtering
+);
+
+CREATE TABLE messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL REFERENCES sessions(id),
+    role TEXT NOT NULL,            -- user, assistant, system, tool
+    content TEXT NOT NULL,
+    tokens_input INTEGER DEFAULT 0,
+    tokens_output INTEGER DEFAULT 0,
+    tool_name TEXT,                -- If role=tool, which tool
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- Full-text search index
+CREATE VIRTUAL TABLE messages_fts USING fts5(
+    content,
+    content='messages',
+    content_rowid='id'
+);
+
+-- Triggers to keep FTS in sync
+CREATE TRIGGER messages_ai AFTER INSERT ON messages BEGIN
+    INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
+END;
+
+CREATE TRIGGER messages_ad AFTER DELETE ON messages BEGIN
+    INSERT INTO messages_fts(messages_fts, rowid, content) VALUES('delete', old.id, old.content);
+END;
+
+-- Indexes
+CREATE INDEX idx_sessions_parent ON sessions(parent_id);
+CREATE INDEX idx_messages_session ON messages(session_id);
+CREATE INDEX idx_sessions_tags ON sessions(tags);
+```
+
+## Session Chaining
+
+When continuing previous work, link sessions:
+
+```python
+def continue_session(previous_session_id: str, new_objective: str) -> str:
+    """Create a new session that continues from a previous one."""
+    # Get the previous session's summary
+    prev = db.execute(
+        "SELECT summary, objective FROM sessions WHERE id = ?",
+        (previous_session_id,)
+    ).fetchone()
+    
+    new_id = str(uuid4())
+    db.execute(
+        "INSERT INTO sessions (id, title, parent_id, objective) VALUES (?, ?, ?, ?)",
+        (new_id, new_objective, previous_session_id, new_objective)
+    )
+    
+    # Inject previous context into new session's system prompt
+    context = f"""Continuing from previous session: {prev['objective']}
+Previous summary: {prev['summary']}
+New objective: {new_objective}"""
+    
+    return new_id, context
+```
+
+### Chain traversal:
+
+```python
+def get_session_chain(session_id: str) -> list[dict]:
+    """Walk back through parent sessions to build full history."""
+    chain = []
+    current = session_id
+    while current:
+        session = db.execute(
+            "SELECT id, objective, summary, parent_id FROM sessions WHERE id = ?",
+            (current,)
+        ).fetchone()
+        if not session:
+            break
+        chain.append(session)
+        current = session['parent_id']
+    return list(reversed(chain))  # Oldest first
+```
+
+## Searching Past Sessions
+
+The killer feature: agents can search before starting work.
+
+```python
+def search_history(query: str, limit: int = 10) -> list[dict]:
+    """Full-text search across all past session messages."""
+    results = db.execute("""
+        SELECT m.content, m.role, s.title, s.objective, s.id as session_id,
+               rank
+        FROM messages_fts AS fts
+        JOIN messages AS m ON m.id = fts.rowid
+        JOIN sessions AS s ON s.id = m.session_id
+        WHERE messages_fts MATCH ?
+        ORDER BY rank
+        LIMIT ?
+    """, (query, limit)).fetchall()
+    return results
+
+# Example: before debugging a Redis issue
+results = search_history("Redis connection timeout")
+# Returns past messages where Redis timeouts were discussed/solved
+```
+
+## What to Persist
+
+### Always persist:
+- **Decisions with rationale:** "Chose Redis over Memcached because we need pub/sub"
+- **Errors and their solutions:** "Got ECONNREFUSED — fixed by starting Redis before the app"
+- **Architecture choices:** "Using event sourcing for order state management"
+- **Configuration discoveries:** "Need to set `max_old_space_size=4096` for this build"
+
+### Persist as summary only:
+- Long tool outputs (just the outcome: "47 tests passed" not the full output)
+- File contents (just the path and what was changed)
+
+### Don't persist:
+- Raw file reads (re-read when needed)
+- Intermediate reasoning that led nowhere
+- Verbose build/install logs
+
+## Session Summary Generation
+
+At session end, generate a structured summary:
+
+```python
+def summarize_session(session_id: str) -> str:
+    """Generate a summary when a session completes."""
+    messages = db.execute(
+        "SELECT role, content FROM messages WHERE session_id = ? ORDER BY id",
+        (session_id,)
+    ).fetchall()
+    
+    # Extract key information
+    summary = {
+        "objective": get_objective(session_id),
+        "outcome": "completed" | "blocked" | "abandoned",
+        "what_was_done": [...],      # List of actions taken
+        "decisions_made": [...],      # Key choices
+        "errors_encountered": [...],  # Problems and solutions
+        "files_modified": [...],      # Changed files
+        "open_questions": [...]       # Unresolved items
+    }
+    
+    db.execute(
+        "UPDATE sessions SET summary = ?, status = 'completed' WHERE id = ?",
+        (json.dumps(summary), session_id)
+    )
+    return summary
+```
+
+## Integration: Pre-Work Search
+
+Before starting any task, search for relevant history:
+
+```python
+def pre_work_check(task_description: str) -> str:
+    """Search for past sessions relevant to current task."""
+    # Search for related work
+    results = search_history(task_description, limit=5)
+    
+    if results:
+        context = "## Relevant Past Sessions\n"
+        for r in results:
+            context += f"- **{r['title']}** (session {r['session_id'][:8]}): {r['content'][:200]}\n"
+        return context
+    
+    return "No relevant past sessions found."
+
+# Usage in agent loop
+task = "Fix the Redis connection pooling issue"
+past_context = pre_work_check(task)
+# Agent now knows what was tried before
+```
+
+## Database Location
+
+```python
+import os
+
+def get_db_path() -> str:
+    raos_home = os.environ.get("RAOS_HOME", os.path.expanduser("~/.raos"))
+    return os.path.join(raos_home, "state", "sessions.db")
+```
+
+The database lives under the RAOS home directory, making it profile-aware (see profile-isolation.md).
+
+## Rules for Agents
+
+1. **Search before you start.** Always check if this problem was solved before.
+2. **Log decisions explicitly.** Don't just make a choice — record it with the "why."
+3. **Summarize on exit.** Every session gets a summary, even abandoned ones.
+4. **Chain related sessions.** Use `parent_id` to link continued work.
+5. **Tag sessions.** Tags like "redis", "auth", "migration" make future search easier.
+6. **Don't store raw outputs.** Summaries are searchable; 5000-line logs are not.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/background-tasks.md
+# Background Tasks
+
+## Problem
+
+Long-running tasks — test suites, builds, deployments, database migrations — block the agent. The agent sits idle waiting for output instead of doing useful work. A 3-minute test suite wastes 3 minutes of agent time.
+
+## Core Pattern: Fire-and-Forget with Notification
+
+```
+Agent                          Process Registry
+  │                                  │
+  ├── start("npm test") ───────────→ │ spawn process, register PID
+  │                                  │
+  ├── (continue other work) ←─────── │ returns session_id immediately
+  │                                  │
+  │   ... agent works on other tasks ...
+  │                                  │
+  ├── poll(session_id) ────────────→ │ check status + new output
+  │   ← {running, new_lines: [...]} │
+  │                                  │
+  │   ... more work ...              │
+  │                                  │
+  │   ← NOTIFICATION: process exited │ notify_on_complete fires
+  │     {exit_code: 0, output: ...}  │
+  │                                  │
+  └── log(session_id) ────────────→ │ get full output
+```
+
+## Process Registry
+
+Track all background processes in a registry:
+
+```python
+@dataclass
+class BackgroundProcess:
+    session_id: str
+    pid: int
+    command: str
+    start_time: float
+    exit_code: Optional[int]     # None while running
+    stdout_buffer: list[str]     # Rolling buffer of output lines
+    stderr_buffer: list[str]
+    notify_on_complete: bool
+    watch_patterns: list[str]    # Patterns to watch for in output
+    workdir: str
+    last_poll_line: int          # Track what's been read
+
+processes: dict[str, BackgroundProcess] = {}
+```
+
+## Actions
+
+### Start
+
+```python
+def start_background(
+    command: str,
+    workdir: str = ".",
+    notify_on_complete: bool = False,
+    watch_patterns: list[str] = None
+) -> str:
+    """Start a background process. Returns session_id immediately."""
+    session_id = str(uuid4())[:8]
+    proc = subprocess.Popen(
+        command, shell=True, cwd=workdir,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    processes[session_id] = BackgroundProcess(
+        session_id=session_id,
+        pid=proc.pid,
+        command=command,
+        start_time=time.time(),
+        exit_code=None,
+        stdout_buffer=[],
+        stderr_buffer=[],
+        notify_on_complete=notify_on_complete,
+        watch_patterns=watch_patterns or [],
+        workdir=workdir,
+        last_poll_line=0
+    )
+    # Start output reader thread
+    threading.Thread(target=_read_output, args=(session_id, proc)).start()
+    return session_id
+```
+
+### Poll
+
+Check status and get new output since last poll:
+
+```python
+def poll(session_id: str) -> dict:
+    """Check process status and get new output lines."""
+    proc = processes[session_id]
+    new_lines = proc.stdout_buffer[proc.last_poll_line:]
+    proc.last_poll_line = len(proc.stdout_buffer)
+    
+    return {
+        "status": "running" if proc.exit_code is None else "exited",
+        "exit_code": proc.exit_code,
+        "new_lines": new_lines,
+        "elapsed_seconds": time.time() - proc.start_time
+    }
+```
+
+### Wait
+
+Block until process completes (with timeout):
+
+```python
+def wait(session_id: str, timeout: int = 300) -> dict:
+    """Block until process exits or timeout."""
+    proc = processes[session_id]
+    deadline = time.time() + timeout
+    while proc.exit_code is None and time.time() < deadline:
+        time.sleep(0.5)
+    return poll(session_id)
+```
+
+### Log
+
+Get full output with pagination:
+
+```python
+def log(session_id: str, offset: int = 0, limit: int = 200) -> dict:
+    """Get full output log with pagination."""
+    proc = processes[session_id]
+    lines = proc.stdout_buffer[offset:offset + limit]
+    return {
+        "lines": lines,
+        "total_lines": len(proc.stdout_buffer),
+        "offset": offset,
+        "has_more": offset + limit < len(proc.stdout_buffer)
+    }
+```
+
+### Kill
+
+Terminate a runaway process:
+
+```python
+def kill(session_id: str) -> dict:
+    """Terminate a background process."""
+    proc = processes[session_id]
+    os.kill(proc.pid, signal.SIGTERM)
+    time.sleep(1)
+    if proc.exit_code is None:
+        os.kill(proc.pid, signal.SIGKILL)
+    return {"status": "killed", "pid": proc.pid}
+```
+
+## Watch Patterns
+
+Fire a notification when specific patterns appear in output — useful for catching errors early without waiting for the process to finish.
+
+```python
+watch_patterns = ["ERROR", "FAIL", "Traceback", "WARN"]
+
+def _check_patterns(session_id: str, line: str):
+    proc = processes[session_id]
+    for pattern in proc.watch_patterns:
+        if pattern in line:
+            notify_agent(
+                f"Watch pattern '{pattern}' matched in process {session_id}",
+                line=line
+            )
+```
+
+**Use watch patterns for mid-process signals**, not end-of-process markers. For "process finished," use `notify_on_complete`.
+
+## Example: Test Suite While Working
+
+```python
+# Agent kicks off tests in background
+test_session = terminal(
+    command="npm test -- --coverage",
+    background=True,
+    notify_on_complete=True,
+    watch_patterns=["FAIL", "ERROR"]
+)
+# Returns immediately with session_id
+
+# Agent continues working on other files
+patch("src/utils/validator.ts", old_string="...", new_string="...")
+write_file("src/utils/formatter.ts", content="...")
+
+# Mid-work check (optional)
+status = process(action="poll", session_id=test_session)
+if status["new_lines"]:
+    # Glance at progress
+    pass
+
+# Eventually, notification arrives:
+# "Process test_session exited with code 1"
+
+# Agent reads the failure
+result = process(action="log", session_id=test_session, limit=50)
+# Last 50 lines show which tests failed
+```
+
+## Parallel Execution Pattern
+
+Run multiple independent tasks simultaneously:
+
+```python
+# Start 3 parallel tasks
+sessions = {
+    "lint": terminal("npm run lint", background=True, notify_on_complete=True),
+    "test": terminal("npm test", background=True, notify_on_complete=True),
+    "build": terminal("npm run build", background=True, notify_on_complete=True),
+}
+
+# Wait for all to complete
+results = {}
+for name, sid in sessions.items():
+    results[name] = process(action="wait", session_id=sid, timeout=300)
+
+# Check results
+for name, result in results.items():
+    if result["exit_code"] != 0:
+        print(f"{name} failed!")
+        failure_log = process(action="log", session_id=sessions[name], limit=30)
+```
+
+## Rules for Agents
+
+1. **Background anything over 10 seconds.** Builds, test suites, installs, deployments.
+2. **Always set `notify_on_complete=True`.** Don't rely on polling loops.
+3. **Use watch patterns for errors.** Catch `FAIL`, `ERROR`, `Traceback` early.
+4. **Don't use shell backgrounding.** No `&`, `nohup`, or `disown`. Use the process manager.
+5. **Kill stuck processes.** If a process runs 3x longer than expected, kill it.
+6. **Read logs on failure, not success.** If exit_code=0, you rarely need the full log.
+7. **Parallelize independent work.** Lint + test + build can run simultaneously.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/profile-isolation.md
+# Profile Isolation
+
+## Problem
+
+One agent configuration doesn't fit all contexts. A code reviewer agent needs different tools, memory, and rules than a DevOps agent. A production environment needs different guardrails than development. Without isolation, agents share state and config in ways that cause conflicts.
+
+## Core Pattern: Home Directory Override
+
+A single environment variable — `RAOS_HOME` — controls where all agent state lives. Every profile gets its own fully isolated directory tree.
+
+```
+~/.raos/                          # Default profile
+~/.raos-profiles/
+  ├── coder/                      # Coder profile
+  │   ├── config.yaml
+  │   ├── state/
+  │   │   └── sessions.db
+  │   ├── skills/
+  │   └── memory/
+  ├── reviewer/                   # Reviewer profile
+  │   ├── config.yaml
+  │   ├── state/
+  │   │   └── sessions.db
+  │   ├── skills/
+  │   └── memory/
+  └── devops/                     # DevOps profile
+      ├── config.yaml
+      ├── state/
+      │   └── sessions.db
+      ├── skills/
+      └── memory/
+```
+
+## Implementation
+
+### The Golden Rule: `get_raos_home()`
+
+Every piece of code that touches the filesystem MUST use this function. Never hardcode paths.
+
+```python
+import os
+
+def get_raos_home() -> str:
+    """Get the RAOS home directory. All paths derive from this."""
+    return os.environ.get("RAOS_HOME", os.path.expanduser("~/.raos"))
+
+def get_config_path() -> str:
+    return os.path.join(get_raos_home(), "config.yaml")
+
+def get_state_db_path() -> str:
+    return os.path.join(get_raos_home(), "state", "sessions.db")
+
+def get_skills_dir() -> str:
+    return os.path.join(get_raos_home(), "skills")
+
+def get_memory_dir() -> str:
+    return os.path.join(get_raos_home(), "memory")
+```
+
+### Profile Switching via CLI
+
+```bash
+# Use a specific profile
+raos -p coder "Write the auth module"
+raos -p reviewer "Review PR #42"
+raos -p devops "Deploy to staging"
+
+# Under the hood, -p sets RAOS_HOME:
+# raos -p coder → RAOS_HOME=~/.raos-profiles/coder raos "..."
+```
+
+### Profile Initialization
+
+```python
+def init_profile(name: str) -> str:
+    """Create a new isolated profile."""
+    base = os.path.expanduser("~/.raos-profiles")
+    profile_dir = os.path.join(base, name)
+    
+    # Create directory structure
+    os.makedirs(os.path.join(profile_dir, "state"), exist_ok=True)
+    os.makedirs(os.path.join(profile_dir, "skills"), exist_ok=True)
+    os.makedirs(os.path.join(profile_dir, "memory"), exist_ok=True)
+    
+    # Create default config
+    default_config = {
+        "profile_name": name,
+        "model": "claude-sonnet-4-20250514",
+        "max_iterations": 50,
+        "allowed_tools": ["all"],
+        "system_prompt_additions": "",
+    }
+    
+    config_path = os.path.join(profile_dir, "config.yaml")
+    with open(config_path, "w") as f:
+        yaml.dump(default_config, f)
+    
+    return profile_dir
+```
+
+## What Each Profile Isolates
+
+| Component | What's Isolated | Why |
+|-----------|----------------|-----|
+| `config.yaml` | Model, tools, limits, prompts | Different agents need different capabilities |
+| `state/sessions.db` | Conversation history | Reviewer shouldn't see coder's debug sessions |
+| `skills/` | Learned procedures/scripts | DevOps skills ≠ coding skills |
+| `memory/` | Persistent knowledge store | Project-specific institutional knowledge |
+
+## Use Cases
+
+### 1. Role-Based Profiles
+
+```yaml
+# ~/.raos-profiles/coder/config.yaml
+profile_name: coder
+model: claude-sonnet-4-20250514
+max_iterations: 100
+allowed_tools: [read_file, write_file, patch, search_files, terminal]
+system_prompt_additions: |
+  You are a senior software engineer. Write clean, tested code.
+  Always run tests after changes. Follow existing code patterns.
+
+# ~/.raos-profiles/reviewer/config.yaml
+profile_name: reviewer
+model: claude-sonnet-4-20250514
+max_iterations: 30
+allowed_tools: [read_file, search_files, terminal]  # No write access
+system_prompt_additions: |
+  You are a code reviewer. Read code, find bugs, suggest improvements.
+  Never modify files directly. Output review comments only.
+```
+
+### 2. Environment-Based Profiles
+
+```yaml
+# ~/.raos-profiles/dev/config.yaml
+profile_name: dev
+max_cost_per_session: 5.00
+allowed_tools: [all]
+dangerous_tool_confirmation: false
+
+# ~/.raos-profiles/prod/config.yaml
+profile_name: prod
+max_cost_per_session: 1.00
+allowed_tools: [read_file, search_files, terminal]  # No write in prod
+dangerous_tool_confirmation: true
+required_approval: [terminal]  # Human approval for shell commands
+```
+
+### 3. Project-Specific Profiles
+
+```yaml
+# ~/.raos-profiles/project-alpha/config.yaml
+profile_name: project-alpha
+model: claude-sonnet-4-20250514
+system_prompt_additions: |
+  Project Alpha uses:
+  - TypeScript + Next.js 14
+  - PostgreSQL + Prisma ORM
+  - pnpm for package management
+  - Vitest for testing
+  Always use these technologies. Check prisma schema before DB work.
+```
+
+## Profile Composition
+
+For advanced setups, profiles can inherit from a base:
+
+```yaml
+# ~/.raos-profiles/base/config.yaml
+model: claude-sonnet-4-20250514
+max_iterations: 50
+
+# ~/.raos-profiles/coder/config.yaml
+inherits: base
+max_iterations: 100  # Override
+allowed_tools: [all]  # Add
+```
+
+```python
+def load_config(profile_dir: str) -> dict:
+    config_path = os.path.join(profile_dir, "config.yaml")
+    with open(config_path) as f:
+        config = yaml.safe_load(f)
+    
+    if "inherits" in config:
+        base_dir = os.path.join(os.path.dirname(profile_dir), config["inherits"])
+        base_config = load_config(base_dir)
+        base_config.update(config)
+        return base_config
+    
+    return config
+```
+
+## Rules for Agents
+
+1. **Always use `get_raos_home()`.** Never write `~/.raos` directly in code.
+2. **Check `RAOS_HOME` at startup.** Log which profile is active.
+3. **Don't cross profile boundaries.** A coder profile must never read reviewer's state.
+4. **Initialize on first use.** If the profile directory doesn't exist, create it.
+5. **Profiles are disposable.** Delete a profile directory to reset completely.
+6. **Default is default.** If no `-p` flag, use `~/.raos` as the default profile.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/cost-tracking.md
+# Cost Tracking
+
+## Problem
+
+Agent work costs real money. Without tracking, a single runaway objective can burn through $50 before anyone notices. Teams need visibility into what agents cost, per-session and per-objective, with hard budget limits.
+
+## Core Pattern: Per-Message Token Tracking + Cost Estimation
+
+Track token counts on every message, multiply by model-specific pricing, enforce budget limits.
+
+```
+Message → Count Tokens → Store in DB → Estimate Cost → Check Budget
+                                                          │
+                                              ┌───────────┴───────────┐
+                                              │ Under 80%: continue   │
+                                              │ At 80%: warn          │
+                                              │ At 100%: hard stop    │
+                                              └───────────────────────┘
+```
+
+## Token Tracking Schema
+
+```sql
+-- Extend the messages table (see session-persistence.md)
+ALTER TABLE messages ADD COLUMN tokens_input INTEGER DEFAULT 0;
+ALTER TABLE messages ADD COLUMN tokens_output INTEGER DEFAULT 0;
+ALTER TABLE messages ADD COLUMN tokens_cache_read INTEGER DEFAULT 0;
+ALTER TABLE messages ADD COLUMN tokens_cache_write INTEGER DEFAULT 0;
+ALTER TABLE messages ADD COLUMN model TEXT;
+
+-- Cost tracking table
+CREATE TABLE cost_ledger (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL REFERENCES sessions(id),
+    message_id INTEGER REFERENCES messages(id),
+    model TEXT NOT NULL,
+    tokens_input INTEGER DEFAULT 0,
+    tokens_output INTEGER DEFAULT 0,
+    tokens_cache_read INTEGER DEFAULT 0,
+    tokens_cache_write INTEGER DEFAULT 0,
+    cost_usd REAL NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- Budget tracking
+CREATE TABLE budgets (
+    id TEXT PRIMARY KEY,           -- objective_id or session_id
+    budget_type TEXT NOT NULL,     -- 'session' or 'objective'
+    max_cost_usd REAL NOT NULL,
+    current_cost_usd REAL DEFAULT 0.0,
+    status TEXT DEFAULT 'active'   -- active, warning, exceeded
+);
+
+CREATE INDEX idx_cost_session ON cost_ledger(session_id);
+CREATE INDEX idx_cost_model ON cost_ledger(model);
+```
+
+## Model Pricing Tables
+
+```python
+# Prices per 1M tokens (USD) — update as pricing changes
+MODEL_PRICING = {
+    "claude-sonnet-4-20250514": {
+        "input": 3.00,
+        "output": 15.00,
+        "cache_read": 0.30,
+        "cache_write": 3.75,
+    },
+    "claude-3-haiku": {
+        "input": 0.25,
+        "output": 1.25,
+        "cache_read": 0.03,
+        "cache_write": 0.30,
+    },
+    "gpt-4o": {
+        "input": 2.50,
+        "output": 10.00,
+        "cache_read": 1.25,
+        "cache_write": 2.50,
+    },
+    "gpt-4o-mini": {
+        "input": 0.15,
+        "output": 0.60,
+        "cache_read": 0.075,
+        "cache_write": 0.15,
+    },
+}
+
+def estimate_cost(model: str, tokens: dict) -> float:
+    """Calculate cost in USD for a single message."""
+    pricing = MODEL_PRICING.get(model, MODEL_PRICING["claude-sonnet-4-20250514"])
+    cost = (
+        tokens.get("input", 0) * pricing["input"] / 1_000_000
+        + tokens.get("output", 0) * pricing["output"] / 1_000_000
+        + tokens.get("cache_read", 0) * pricing["cache_read"] / 1_000_000
+        + tokens.get("cache_write", 0) * pricing["cache_write"] / 1_000_000
+    )
+    return round(cost, 6)
+```
+
+## Budget Enforcement
+
+```python
+class BudgetManager:
+    def __init__(self, db):
+        self.db = db
+    
+    def check_budget(self, budget_id: str) -> dict:
+        """Check budget status before making an API call."""
+        budget = self.db.execute(
+            "SELECT max_cost_usd, current_cost_usd, status FROM budgets WHERE id = ?",
+            (budget_id,)
+        ).fetchone()
+        
+        if not budget:
+            return {"allowed": True, "status": "no_budget"}
+        
+        ratio = budget["current_cost_usd"] / budget["max_cost_usd"]
+        
+        if ratio >= 1.0:
+            return {
+                "allowed": False,
+                "status": "exceeded",
+                "current": budget["current_cost_usd"],
+                "max": budget["max_cost_usd"]
+            }
+        elif ratio >= 0.8:
+            return {
+                "allowed": True,
+                "status": "warning",
+                "current": budget["current_cost_usd"],
+                "max": budget["max_cost_usd"],
+                "remaining": budget["max_cost_usd"] - budget["current_cost_usd"]
+            }
+        else:
+            return {"allowed": True, "status": "ok"}
+    
+    def record_cost(self, budget_id: str, session_id: str, model: str, tokens: dict):
+        """Record a cost entry and update budget."""
+        cost = estimate_cost(model, tokens)
+        
+        self.db.execute(
+            "INSERT INTO cost_ledger (session_id, model, tokens_input, tokens_output, "
+            "tokens_cache_read, tokens_cache_write, cost_usd) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (session_id, model, tokens.get("input", 0), tokens.get("output", 0),
+             tokens.get("cache_read", 0), tokens.get("cache_write", 0), cost)
+        )
+        
+        self.db.execute(
+            "UPDATE budgets SET current_cost_usd = current_cost_usd + ? WHERE id = ?",
+            (cost, budget_id)
+        )
+        
+        # Check if we crossed a threshold
+        status = self.check_budget(budget_id)
+        if status["status"] == "warning":
+            notify_agent(f"Budget warning: ${status['current']:.2f} / ${status['max']:.2f}")
+        elif status["status"] == "exceeded":
+            notify_agent(f"BUDGET EXCEEDED: ${status['current']:.2f} / ${status['max']:.2f}")
+            raise BudgetExceededError(budget_id)
+```
+
+## Reporting
+
+### Per-Session Cost
+
+```python
+def session_cost_report(session_id: str) -> dict:
+    result = db.execute("""
+        SELECT 
+            model,
+            COUNT(*) as messages,
+            SUM(tokens_input) as total_input,
+            SUM(tokens_output) as total_output,
+            SUM(cost_usd) as total_cost
+        FROM cost_ledger
+        WHERE session_id = ?
+        GROUP BY model
+    """, (session_id,)).fetchall()
+    
+    return {
+        "session_id": session_id,
+        "by_model": [dict(r) for r in result],
+        "total_cost": sum(r["total_cost"] for r in result)
+    }
+```
+
+### Per-Objective Cost (across multiple agents)
+
+```python
+def objective_cost_report(objective_id: str) -> dict:
+    """Cost across all sessions tied to an objective."""
+    result = db.execute("""
+        SELECT 
+            s.title as session_title,
+            cl.model,
+            COUNT(*) as messages,
+            SUM(cl.cost_usd) as cost
+        FROM cost_ledger cl
+        JOIN sessions s ON s.id = cl.session_id
+        WHERE s.objective = ? OR s.id IN (
+            SELECT session_id FROM objective_sessions WHERE objective_id = ?
+        )
+        GROUP BY s.id, cl.model
+        ORDER BY cost DESC
+    """, (objective_id, objective_id)).fetchall()
+    
+    total = sum(r["cost"] for r in result)
+    return {
+        "objective_id": objective_id,
+        "breakdown": [dict(r) for r in result],
+        "total_cost": total,
+        "total_messages": sum(r["messages"] for r in result)
+    }
+```
+
+## Example Output
+
+```
+=== Objective Cost Report ===
+Objective: "Implement user authentication system"
+Total Cost: $2.47 across 14 agent turns (3 agents)
+
+  Architect Agent (session abc123):
+    claude-sonnet-4-20250514: 4 turns, 12K input, 3K output = $0.08
+  
+  Builder Agent 1 (session def456):
+    claude-sonnet-4-20250514: 6 turns, 89K input, 18K output = $0.54
+  
+  Builder Agent 2 (session ghi789):
+    claude-sonnet-4-20250514: 4 turns, 62K input, 41K output = $0.80
+  
+  Test Agent (session jkl012):
+    claude-sonnet-4-20250514: 8 turns, 45K input, 22K output = $1.05
+
+Budget: $2.47 / $5.00 (49.4%)
+```
+
+## Integration with Agent Loop
+
+```python
+def agent_turn(message: str, budget_id: str, session_id: str):
+    """Wrap each agent turn with cost tracking."""
+    # Pre-check
+    budget_status = budget_manager.check_budget(budget_id)
+    if not budget_status["allowed"]:
+        return {"error": "Budget exceeded", "details": budget_status}
+    
+    # Make API call
+    response = call_model(message)
+    
+    # Record cost
+    budget_manager.record_cost(
+        budget_id=budget_id,
+        session_id=session_id,
+        model=response.model,
+        tokens={
+            "input": response.usage.input_tokens,
+            "output": response.usage.output_tokens,
+            "cache_read": response.usage.cache_read_tokens,
+            "cache_write": response.usage.cache_creation_tokens,
+        }
+    )
+    
+    return response
+```
+
+## Rules for Agents
+
+1. **Track every API call.** No exceptions. Even retries and failed calls cost money.
+2. **Check budget before each turn.** Don't make the call if you're over budget.
+3. **Warn at 80%.** Give the agent a chance to wrap up efficiently.
+4. **Hard stop at 100%.** Save state, summarize progress, exit cleanly.
+5. **Use cheaper models for simple tasks.** Haiku for file reads, Sonnet for reasoning.
+6. **Cache aggressively.** Cache reads cost 10x less than fresh input tokens.
+7. **Report costs in summaries.** Every delegation result should include cost.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/dashboard-themes.md
+# Dashboard Theme Engine
+
+> Runtime-switchable themes for the RAOS Mission Control dashboard.
+
+## Overview
+
+The dashboard supports multiple visual themes loaded from JSON files. Themes are stored in `dashboard/themes/`, served via API, and applied client-side through CSS custom properties. Theme selection persists in `localStorage`.
+
+## Theme File Format
+
+```json
+{
+  "name": "Dark",
+  "colors": {
+    "primary": "#bb86fc",
+    "secondary": "#03dac6",
+    "bg": "#121212",
+    "text": "#e1e1e1",
+    "accent": "#bb86fc",
+    "success": "#03dac6",
+    "warning": "#ffb74d",
+    "error": "#cf6679"
+  },
+  "fonts": {
+    "heading": "'JetBrains Mono', monospace",
+    "body": "-apple-system, BlinkMacSystemFont, sans-serif"
+  },
+  "logo_text": "RAOS V3 — Dark Mode"
+}
+```
+
+## API Endpoints
+
+| Endpoint              | Method | Description                    |
+|-----------------------|--------|--------------------------------|
+| `/api/themes`         | GET    | List all available themes      |
+| `/api/theme`          | GET    | Get default (first) theme      |
+| `/api/theme?name=Dark`| GET    | Get theme by name              |
+
+## Adding a Custom Theme
+
+1. Create `dashboard/themes/mytheme.json` with the format above
+2. Restart the dashboard server (or it picks up on next `/api/themes` call)
+3. Select from the dropdown in the dashboard header
+
+## Backward Compatibility
+
+If `dashboard/themes/` is empty or missing, the server returns a hardcoded default theme matching the original V2 dark color scheme. No theme files required for basic operation.
+
+## File Structure
+
+```
+dashboard/
+  server.py          # serves /api/themes and /api/theme endpoints
+  index.html          # loads theme on init, has theme switcher dropdown
+  themes/
+    default.json      # default cyan/dark theme
+    dark.json         # material dark purple theme
+```
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/mcp-integration.md
+# MCP Integration — Model Context Protocol
+
+> Connect external tool servers to extend agent capabilities without modifying core code.
+
+## What is MCP?
+
+MCP (Model Context Protocol) is a standard for connecting AI agents to external tool servers. Instead of hardcoding tool implementations, agents discover and call tools served by separate processes over stdio or HTTP.
+
+**Key benefits:**
+- Tools are language-agnostic (server in Python, agent in JS — doesn't matter)
+- Hot-swappable: add/remove tool servers without restarting the agent
+- Isolation: tool crashes don't crash the agent
+- Reusable: one MCP server serves multiple agents
+
+## Architecture
+
+```
+Agent Core
+  ├── Built-in tools (read_file, terminal, etc.)
+  └── MCP Client
+        ├── Database Server (stdio) → query, insert, schema tools
+        ├── Jira Server (stdio)     → create_issue, search, transition tools
+        └── Custom Server (HTTP)    → domain-specific tools
+```
+
+## Configuration Format
+
+MCP servers are configured in the project config:
+
+```json
+{
+  "mcpServers": {
+    "database": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres"],
+      "env": {
+        "DATABASE_URL": "postgresql://user:pass@localhost:5432/mydb"
+      }
+    },
+    "jira": {
+      "command": "python",
+      "args": ["-m", "mcp_jira_server"],
+      "env": {
+        "JIRA_URL": "https://myorg.atlassian.net",
+        "JIRA_TOKEN": "${JIRA_API_TOKEN}"
+      }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/allowed/path"]
+    }
+  }
+}
+```
+
+### Config Fields
+
+| Field     | Type     | Description                                    |
+|-----------|----------|------------------------------------------------|
+| `command` | string   | Executable to launch the server                |
+| `args`    | list     | Command-line arguments                         |
+| `env`     | object   | Environment variables (supports `${VAR}` refs) |
+| `timeout` | int      | Startup timeout in seconds (default: 30)       |
+| `enabled` | bool     | Toggle server on/off (default: true)           |
+
+## Tool Discovery
+
+On startup, the MCP client connects to each server and lists available tools:
+
+```python
+async def discover_tools(server_name: str, config: dict) -> list[Tool]:
+    """Connect to MCP server, return available tools."""
+    client = MCPClient()
+    await client.connect(config["command"], config["args"], config.get("env", {}))
+    
+    tools = await client.list_tools()
+    # Each tool has: name, description, input_schema (JSON Schema)
+    
+    # Namespace tools to avoid collisions
+    for tool in tools:
+        tool.namespaced_name = f"{server_name}.{tool.name}"
+    
+    return tools
+```
+
+## Mapping Tools to Agents
+
+Once discovered, MCP tools are added to the agent's toolset:
+
+```python
+# In agent configuration
+allowed_tools:
+  - read_file
+  - write_file
+  - terminal
+  - database.query          # MCP tool: run SQL queries
+  - database.schema         # MCP tool: get table schemas
+  - jira.create_issue       # MCP tool: create Jira tickets
+  - jira.search             # MCP tool: search issues
+```
+
+## Authentication Patterns
+
+### API Keys via Environment
+
+```json
+{
+  "env": {
+    "API_KEY": "${MY_SERVICE_API_KEY}"
+  }
+}
+```
+
+The `${VAR}` syntax references the host machine's environment variables. Never hardcode secrets in config.
+
+### OAuth Tokens
+
+For OAuth-based services, use a token refresh wrapper:
+
+```json
+{
+  "command": "python",
+  "args": ["-m", "mcp_oauth_wrapper", "--service", "github"],
+  "env": {
+    "OAUTH_CLIENT_ID": "${GH_CLIENT_ID}",
+    "OAUTH_CLIENT_SECRET": "${GH_CLIENT_SECRET}",
+    "OAUTH_TOKEN_FILE": ".tokens/github.json"
+  }
+}
+```
+
+## Example: Database MCP Server
+
+```json
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres"],
+      "env": {
+        "DATABASE_URL": "${DATABASE_URL}"
+      }
+    }
+  }
+}
+```
+
+**Discovered tools:**
+- `postgres.query` — Execute read-only SQL
+- `postgres.schema` — List tables and columns
+- `postgres.explain` — Get query execution plan
+
+**Agent usage:**
+```
+Agent: I need to check the user table structure.
+→ calls postgres.schema(table="users")
+← Returns column definitions, types, constraints
+```
+
+## Example: Jira MCP Server
+
+```json
+{
+  "mcpServers": {
+    "jira": {
+      "command": "uvx",
+      "args": ["mcp-server-jira"],
+      "env": {
+        "JIRA_URL": "${JIRA_URL}",
+        "JIRA_EMAIL": "${JIRA_EMAIL}",
+        "JIRA_TOKEN": "${JIRA_API_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+**Discovered tools:**
+- `jira.search` — JQL search
+- `jira.create_issue` — Create ticket
+- `jira.transition` — Move issue status
+- `jira.add_comment` — Comment on issue
+
+## Failure Handling
+
+### Server Won't Start
+
+```python
+try:
+    await client.connect(command, args, env, timeout=30)
+except MCPStartupError:
+    logger.warning(f"MCP server '{name}' failed to start — skipping")
+    # Agent continues without these tools
+    # Tools from this server return "unavailable" if called
+```
+
+### Tool Timeout
+
+```python
+try:
+    result = await asyncio.wait_for(client.call_tool(name, args), timeout=60)
+except asyncio.TimeoutError:
+    return ToolResult(error=f"Tool {name} timed out after 60s")
+```
+
+### Retry Logic
+
+```python
+MAX_RETRIES = 3
+RETRY_DELAY = [1, 5, 15]  # exponential-ish backoff
+
+async def call_with_retry(client, tool_name, args):
+    for attempt in range(MAX_RETRIES):
+        try:
+            return await client.call_tool(tool_name, args)
+        except MCPConnectionError:
+            if attempt < MAX_RETRIES - 1:
+                await asyncio.sleep(RETRY_DELAY[attempt])
+                await client.reconnect()
+            else:
+                raise
+```
+
+### Server Crash Recovery
+
+```python
+async def ensure_connected(server_name):
+    """Reconnect to MCP server if connection dropped."""
+    client = connections[server_name]
+    if not client.is_connected():
+        logger.info(f"Reconnecting to MCP server: {server_name}")
+        config = mcp_config[server_name]
+        await client.connect(config["command"], config["args"], config.get("env", {}))
+```
+
+## Security Considerations
+
+1. **Least privilege**: Only give agents access to the MCP tools they need
+2. **Read-only by default**: Prefer read-only database connections
+3. **Env var secrets**: Never commit tokens to config files
+4. **Network isolation**: Run MCP servers in containers if they access external services
+5. **Audit logging**: Log all MCP tool calls for traceability
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/platform-gateway.md
+# Platform Gateway — Multi-Platform Agent Architecture
+
+> One agent core, many platform adapters. Same logic serves CLI, Telegram, Discord, Slack, and more.
+
+## Core Pattern
+
+```
+                    ┌─────────────────┐
+  CLI ──────────────┤                 │
+  Telegram ─────────┤  Platform       │      ┌──────────────┐
+  Discord ──────────┤  Gateway        ├─────►│  Agent Core   │
+  Slack ────────────┤  (normalize +   │      │  (unchanged)  │
+  WhatsApp ─────────┤   route)        │      └──────────────┘
+  Teams ────────────┤                 │
+                    └─────────────────┘
+```
+
+The agent core never knows which platform a message came from. The gateway normalizes everything into a unified `Message` object.
+
+## Unified Message Object
+
+```python
+@dataclass
+class Message:
+    id: str                          # unique message ID
+    session_id: str                  # platform:chat_id:thread_id
+    platform: str                    # "cli", "telegram", "discord", etc.
+    sender: str                      # username or user ID
+    text: str                        # normalized text content
+    media: list[MediaAttachment]     # images, files, voice
+    reply_to: str | None             # parent message ID
+    timestamp: datetime
+    raw: dict                        # original platform payload
+
+@dataclass
+class MediaAttachment:
+    type: str        # "image", "file", "voice", "video"
+    url: str         # download URL or local path
+    filename: str
+    mime_type: str
+    size_bytes: int
+```
+
+## Adapter Interface
+
+Every platform adapter implements this interface:
+
+```python
+class PlatformAdapter(Protocol):
+    platform_name: str
+    
+    async def start(self) -> None:
+        """Start listening for messages."""
+    
+    async def stop(self) -> None:
+        """Gracefully disconnect."""
+    
+    async def send(self, session_id: str, response: AgentResponse) -> None:
+        """Send agent response back to the platform."""
+    
+    async def on_message(self, callback: Callable[[Message], Awaitable]) -> None:
+        """Register handler for incoming messages."""
+    
+    def format_response(self, response: AgentResponse) -> Any:
+        """Convert agent response to platform-native format."""
+```
+
+## Session Routing
+
+Sessions are addressed as `platform:chat_id:thread_id`:
+
+```
+cli:local:default              # CLI session
+telegram:123456789:0           # Telegram DM
+telegram:-100987654:42         # Telegram group, thread 42
+discord:guild123:channel456    # Discord channel
+slack:T01ABC:C02DEF:ts123      # Slack thread
+whatsapp:+1234567890:0         # WhatsApp chat
+teams:tenant:channel:thread    # Teams thread
+```
+
+```python
+def parse_session(session_id: str) -> tuple[str, str, str]:
+    parts = session_id.split(":", 2)
+    platform = parts[0]
+    chat_id = parts[1] if len(parts) > 1 else "default"
+    thread_id = parts[2] if len(parts) > 2 else "0"
+    return platform, chat_id, thread_id
+
+def route_response(session_id: str, response: AgentResponse):
+    platform, _, _ = parse_session(session_id)
+    adapter = adapters[platform]
+    adapter.send(session_id, response)
+```
+
+## Platform Adapters
+
+### CLI Adapter
+
+```python
+class CLIAdapter:
+    platform_name = "cli"
+    
+    async def start(self):
+        # Read from stdin in a loop
+        while True:
+            line = await asyncio.get_event_loop().run_in_executor(None, input, "> ")
+            msg = Message(
+                id=str(uuid4()),
+                session_id="cli:local:default",
+                platform="cli",
+                sender="user",
+                text=line,
+                media=[], reply_to=None,
+                timestamp=datetime.now(), raw={}
+            )
+            await self._callback(msg)
+    
+    async def send(self, session_id, response):
+        print(response.text)
+        for media in response.media:
+            print(f"[{media.type}: {media.filename}]")
+```
+
+### Telegram Adapter
+
+```python
+class TelegramAdapter:
+    platform_name = "telegram"
+    
+    def __init__(self, token: str):
+        self.bot = TelegramBot(token)
+    
+    async def start(self):
+        @self.bot.on_message()
+        async def handle(update):
+            msg = Message(
+                id=str(update.message_id),
+                session_id=f"telegram:{update.chat.id}:{update.message_thread_id or 0}",
+                platform="telegram",
+                sender=update.from_user.username,
+                text=update.text or "",
+                media=self._extract_media(update),
+                reply_to=str(update.reply_to_message.message_id) if update.reply_to_message else None,
+                timestamp=update.date,
+                raw=update.to_dict()
+            )
+            await self._callback(msg)
+        await self.bot.start_polling()
+    
+    async def send(self, session_id, response):
+        _, chat_id, thread_id = parse_session(session_id)
+        await self.bot.send_message(
+            chat_id=int(chat_id),
+            text=response.text,
+            message_thread_id=int(thread_id) if thread_id != "0" else None
+        )
+```
+
+## Message Format Normalization
+
+Each platform has quirks. The gateway normalizes them:
+
+| Platform  | Mentions        | Normalized to        |
+|-----------|-----------------|----------------------|
+| Telegram  | `@botname cmd`  | strip bot mention    |
+| Discord   | `<@123> cmd`    | strip mention markup |
+| Slack     | `<@U01> cmd`    | strip mention markup |
+| CLI       | plain text      | as-is                |
+
+```python
+def normalize_text(platform: str, raw_text: str, bot_id: str) -> str:
+    if platform == "telegram":
+        return raw_text.replace(f"@{bot_id}", "").strip()
+    if platform == "discord":
+        return re.sub(r"<@!?\d+>\s*", "", raw_text).strip()
+    if platform == "slack":
+        return re.sub(r"<@\w+>\s*", "", raw_text).strip()
+    return raw_text.strip()
+```
+
+## Media Handling
+
+### Receiving Media
+
+```python
+async def download_media(attachment: MediaAttachment) -> Path:
+    """Download media to local temp file."""
+    local = TEMP_DIR / attachment.filename
+    async with aiohttp.ClientSession() as session:
+        async with session.get(attachment.url) as resp:
+            local.write_bytes(await resp.read())
+    return local
+```
+
+### Sending Media
+
+```python
+class AgentResponse:
+    text: str
+    media: list[MediaAttachment]
+    
+# Platform-specific rendering:
+# - CLI: print file path
+# - Telegram: send_photo / send_document
+# - Discord: attach file to message
+# - Slack: upload to channel
+```
+
+### Voice Messages
+
+```python
+async def handle_voice(attachment: MediaAttachment) -> str:
+    """Convert voice to text for agent processing."""
+    local = await download_media(attachment)
+    transcript = await speech_to_text(local)
+    return transcript  # Agent sees text, not audio
+```
+
+## Example: Same Agent, Two Platforms
+
+```python
+async def main():
+    agent = AgentCore(config)
+    gateway = PlatformGateway(agent)
+    
+    # Register adapters
+    gateway.register(CLIAdapter())
+    gateway.register(TelegramAdapter(token=os.environ["TG_TOKEN"]))
+    
+    # Both adapters route to the same agent
+    # CLI user types: "check server status"
+    # Telegram user sends: "check server status"
+    # Same agent handles both, responds via correct platform
+    
+    await gateway.start_all()
+```
+
+## Platform-Specific Response Formatting
+
+```python
+def format_for_platform(platform: str, response: AgentResponse) -> Any:
+    if platform == "cli":
+        return response.text  # plain text, maybe with ANSI colors
+    if platform == "telegram":
+        return {"text": response.text, "parse_mode": "Markdown"}
+    if platform == "discord":
+        return {"content": response.text[:2000]}  # Discord char limit
+    if platform == "slack":
+        return {"blocks": [{"type": "section", "text": {"type": "mrkdwn", "text": response.text}}]}
+```
+
+## Configuration
+
+```yaml
+# platform-gateway.yaml
+platforms:
+  cli:
+    enabled: true
+  telegram:
+    enabled: true
+    token_env: TELEGRAM_BOT_TOKEN
+  discord:
+    enabled: false
+    token_env: DISCORD_BOT_TOKEN
+  slack:
+    enabled: false
+    token_env: SLACK_BOT_TOKEN
+    signing_secret_env: SLACK_SIGNING_SECRET
+```
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/terminal-backends.md
+# Terminal Backends — Abstract Execution Across Environments
+
+> Same agent, same commands — different execution environments. Local, Docker, SSH, or cloud.
+
+## Core Pattern
+
+The agent calls `execute(command, timeout, workdir)` and gets back `{output, exit_code}`. It never knows (or cares) whether the command ran locally, in a container, on a remote server, or in a serverless function.
+
+```
+Agent
+  │
+  ▼
+TerminalBackend (interface)
+  ├── LocalBackend      → subprocess on host machine
+  ├── DockerBackend     → docker exec in container
+  ├── SSHBackend        → ssh remote execution
+  └── CloudBackend      → Modal/Lambda/serverless
+```
+
+## Interface
+
+```python
+from dataclasses import dataclass
+from typing import Protocol
+
+@dataclass
+class ExecResult:
+    output: str
+    exit_code: int
+    duration_ms: int
+
+class TerminalBackend(Protocol):
+    name: str
+    
+    async def execute(
+        self,
+        command: str,
+        timeout: int = 180,
+        workdir: str | None = None
+    ) -> ExecResult:
+        """Execute a command and return output + exit code."""
+        ...
+    
+    async def write_file(self, path: str, content: str) -> None:
+        """Write a file in the execution environment."""
+        ...
+    
+    async def read_file(self, path: str) -> str:
+        """Read a file from the execution environment."""
+        ...
+    
+    async def is_healthy(self) -> bool:
+        """Check if the backend is available."""
+        ...
+```
+
+## Backend: Local
+
+Direct subprocess execution on the host machine.
+
+```python
+class LocalBackend:
+    name = "local"
+    
+    async def execute(self, command, timeout=180, workdir=None):
+        start = time.monotonic()
+        proc = await asyncio.create_subprocess_shell(
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+            cwd=workdir
+        )
+        try:
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        except asyncio.TimeoutError:
+            proc.kill()
+            return ExecResult(output="Command timed out", exit_code=-1,
+                            duration_ms=int((time.monotonic()-start)*1000))
+        
+        return ExecResult(
+            output=stdout.decode(errors="replace"),
+            exit_code=proc.returncode,
+            duration_ms=int((time.monotonic() - start) * 1000)
+        )
+    
+    async def is_healthy(self):
+        return True  # always available
+```
+
+## Backend: Docker
+
+Execute commands inside a running container. Ideal for untrusted code.
+
+```python
+class DockerBackend:
+    name = "docker"
+    
+    def __init__(self, image="python:3.12-slim", container_name=None):
+        self.image = image
+        self.container_name = container_name or f"raos-sandbox-{uuid4().hex[:8]}"
+        self._started = False
+    
+    async def ensure_container(self):
+        if not self._started:
+            await self.execute_host(
+                f"docker run -d --name {self.container_name} "
+                f"-v {self.workspace}:/workspace -w /workspace "
+                f"{self.image} sleep infinity"
+            )
+            self._started = True
+    
+    async def execute(self, command, timeout=180, workdir=None):
+        await self.ensure_container()
+        wd = workdir or "/workspace"
+        start = time.monotonic()
+        result = await self.execute_host(
+            f"docker exec -w {wd} {self.container_name} sh -c {shlex.quote(command)}",
+            timeout=timeout
+        )
+        result.duration_ms = int((time.monotonic() - start) * 1000)
+        return result
+    
+    async def cleanup(self):
+        await self.execute_host(f"docker rm -f {self.container_name}")
+```
+
+## Backend: SSH
+
+Remote execution over SSH. Good for GPU servers, staging environments.
+
+```python
+class SSHBackend:
+    name = "ssh"
+    
+    def __init__(self, host, user="root", key_file=None, port=22):
+        self.host = host
+        self.user = user
+        self.key_file = key_file
+        self.port = port
+    
+    async def execute(self, command, timeout=180, workdir=None):
+        cd = f"cd {workdir} && " if workdir else ""
+        ssh_cmd = (
+            f"ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no "
+            f"-p {self.port} "
+            f"{f'-i {self.key_file} ' if self.key_file else ''}"
+            f"{self.user}@{self.host} "
+            f"{shlex.quote(cd + command)}"
+        )
+        start = time.monotonic()
+        proc = await asyncio.create_subprocess_shell(
+            ssh_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        return ExecResult(
+            output=stdout.decode(errors="replace"),
+            exit_code=proc.returncode,
+            duration_ms=int((time.monotonic() - start) * 1000)
+        )
+    
+    async def is_healthy(self):
+        result = await self.execute("echo ok", timeout=10)
+        return result.exit_code == 0
+```
+
+## Backend: Cloud (Modal/Serverless)
+
+Execute in serverless containers. Pay-per-use, auto-scaling.
+
+```python
+class ModalBackend:
+    name = "cloud"
+    
+    def __init__(self, app_name="raos-sandbox", gpu=None):
+        self.app_name = app_name
+        self.gpu = gpu  # e.g. "T4", "A100"
+    
+    async def execute(self, command, timeout=180, workdir=None):
+        import modal
+        stub = modal.Stub(self.app_name)
+        
+        @stub.function(gpu=self.gpu, timeout=timeout)
+        def run_command(cmd: str, wd: str) -> tuple[str, int]:
+            import subprocess
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=wd)
+            return result.stdout + result.stderr, result.returncode
+        
+        start = time.monotonic()
+        output, code = await run_command.remote(command, workdir or "/tmp")
+        return ExecResult(
+            output=output, exit_code=code,
+            duration_ms=int((time.monotonic() - start) * 1000)
+        )
+```
+
+## Backend Selection
+
+Configured per-project in the RAOS config:
+
+```yaml
+# .claude/config.yaml
+terminal:
+  default_backend: local
+  backends:
+    local:
+      type: local
+    docker:
+      type: docker
+      image: node:20-slim
+      workspace: /tmp/raos-sandbox
+    gpu:
+      type: ssh
+      host: gpu-server.internal
+      user: ubuntu
+      key_file: ~/.ssh/gpu_key
+    cloud:
+      type: modal
+      gpu: T4
+  
+  # Route rules: pattern -> backend
+  routing:
+    - pattern: "npm|node|webpack"
+      backend: docker
+    - pattern: "python.*train|torch|cuda"
+      backend: gpu
+    - pattern: "*"
+      backend: local
+```
+
+```python
+def select_backend(command: str, config: dict) -> TerminalBackend:
+    for rule in config.get("routing", []):
+        if re.search(rule["pattern"], command):
+            return backends[rule["backend"]]
+    return backends[config.get("default_backend", "local")]
+```
+
+## File Sync for Non-Local Backends
+
+When using Docker, SSH, or cloud backends, files need syncing:
+
+```python
+class FileSyncer:
+    async def push(self, local_path: Path, remote_path: str, backend: TerminalBackend):
+        """Upload local file to remote environment."""
+        if isinstance(backend, DockerBackend):
+            await execute_host(f"docker cp {local_path} {backend.container_name}:{remote_path}")
+        elif isinstance(backend, SSHBackend):
+            await execute_host(f"scp {local_path} {backend.user}@{backend.host}:{remote_path}")
+    
+    async def pull(self, remote_path: str, local_path: Path, backend: TerminalBackend):
+        """Download remote file to local."""
+        if isinstance(backend, DockerBackend):
+            await execute_host(f"docker cp {backend.container_name}:{remote_path} {local_path}")
+        elif isinstance(backend, SSHBackend):
+            await execute_host(f"scp {backend.user}@{backend.host}:{remote_path} {local_path}")
+```
+
+## Isolation Benefits
+
+| Concern             | Local | Docker | SSH   | Cloud  |
+|---------------------|-------|--------|-------|--------|
+| Untrusted code      | ❌    | ✅     | ✅    | ✅     |
+| GPU access          | Maybe | ❌     | ✅    | ✅     |
+| Network isolation   | ❌    | ✅     | ✅    | ✅     |
+| No local deps       | ❌    | ✅     | ✅    | ✅     |
+| Zero setup          | ✅    | ❌     | ❌    | ❌     |
+| Speed               | ⚡    | Fast   | Slow  | Variable|
+
+## Example: Agent Runs Locally, Executes in Docker
+
+```python
+# Agent config
+backend = DockerBackend(image="python:3.12-slim")
+
+# Agent thinks it's running normally:
+result = await backend.execute("python -c 'print(1+1)'")
+# output: "2", exit_code: 0
+# But it actually ran inside a container
+
+result = await backend.execute("rm -rf /")
+# Destroys container filesystem, not host
+# Container can be recreated instantly
+```
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/command-registry.md
+# Command Registry — Single Source of Truth for All Commands
+
+> Define a command once. It works everywhere: CLI, Telegram, Discord, Slack.
+
+## The Problem
+
+Without a registry, commands are duplicated:
+- CLI handler in `cli.py`
+- Telegram handler in `telegram_bot.py`
+- Slash command in `discord_bot.py`
+- Each with different argument parsing, help text, error handling
+
+## Core Pattern
+
+One `CommandDef` defines everything. The registry auto-generates platform-specific dispatchers.
+
+```python
+@dataclass
+class CommandArg:
+    name: str
+    type: str              # "string", "int", "bool", "choice"
+    description: str
+    required: bool = True
+    default: Any = None
+    choices: list = None   # for type="choice"
+
+@dataclass
+class CommandDef:
+    name: str                    # "/status"
+    description: str             # "Show system status"
+    handler: Callable            # async function to execute
+    aliases: list[str] = None   # ["/s", "/stat"]
+    platforms: list[str] = None # None = all platforms
+    args: list[CommandArg] = None
+    hidden: bool = False         # hide from help/menus
+    admin_only: bool = False
+```
+
+## Registry
+
+```python
+class CommandRegistry:
+    def __init__(self):
+        self._commands: dict[str, CommandDef] = {}
+    
+    def register(self, cmd: CommandDef):
+        self._commands[cmd.name] = cmd
+        for alias in (cmd.aliases or []):
+            self._commands[alias] = cmd
+    
+    def get(self, name: str) -> CommandDef | None:
+        return self._commands.get(name)
+    
+    def list_for_platform(self, platform: str) -> list[CommandDef]:
+        seen = set()
+        result = []
+        for cmd in self._commands.values():
+            if cmd.name in seen or cmd.hidden:
+                continue
+            if cmd.platforms is None or platform in cmd.platforms:
+                result.append(cmd)
+                seen.add(cmd.name)
+        return sorted(result, key=lambda c: c.name)
+    
+    def dispatch(self, text: str, platform: str) -> tuple[CommandDef, dict] | None:
+        """Parse command + args from text, return (cmd, parsed_args)."""
+        parts = text.strip().split()
+        if not parts:
+            return None
+        cmd = self.get(parts[0])
+        if not cmd:
+            return None
+        if cmd.platforms and platform not in cmd.platforms:
+            return None
+        args = self._parse_args(cmd, parts[1:])
+        return cmd, args
+```
+
+## Defining Commands
+
+```python
+registry = CommandRegistry()
+
+# /status — works everywhere
+registry.register(CommandDef(
+    name="/status",
+    description="Show system status and uptime",
+    handler=handle_status,
+    aliases=["/s", "/stat"],
+))
+
+# /deploy — CLI and Slack only
+registry.register(CommandDef(
+    name="/deploy",
+    description="Deploy to environment",
+    handler=handle_deploy,
+    aliases=["/d"],
+    platforms=["cli", "slack"],
+    args=[
+        CommandArg("env", "choice", "Target environment", choices=["staging", "production"]),
+        CommandArg("force", "bool", "Skip confirmation", required=False, default=False),
+    ],
+))
+
+# /tasks — universal
+registry.register(CommandDef(
+    name="/tasks",
+    description="List current tasks and their status",
+    handler=handle_tasks,
+    aliases=["/t"],
+))
+```
+
+## Auto-Generated Outputs
+
+### CLI Help Text
+
+```python
+def generate_help(registry: CommandRegistry) -> str:
+    lines = ["Available commands:\n"]
+    for cmd in registry.list_for_platform("cli"):
+        aliases = f" ({', '.join(cmd.aliases)})" if cmd.aliases else ""
+        lines.append(f"  {cmd.name:<16}{cmd.description}{aliases}")
+        if cmd.args:
+            for arg in cmd.args:
+                req = "required" if arg.required else f"default: {arg.default}"
+                lines.append(f"    --{arg.name:<12} {arg.description} [{req}]")
+    return "\n".join(lines)
+```
+
+Output:
+```
+Available commands:
+
+  /status         Show system status and uptime (/s, /stat)
+  /deploy         Deploy to environment (/d)
+    --env          Target environment [required]
+    --force        Skip confirmation [default: False]
+  /tasks          List current tasks and their status (/t)
+```
+
+### CLI Autocomplete
+
+```python
+def generate_completions(registry: CommandRegistry) -> list[str]:
+    completions = []
+    for cmd in registry.list_for_platform("cli"):
+        completions.append(cmd.name)
+        completions.extend(cmd.aliases or [])
+    return completions
+
+# For bash/zsh completion scripts
+def generate_bash_completions(registry):
+    cmds = generate_completions(registry)
+    return f'complete -W "{" ".join(cmds)}" raos'
+```
+
+### Telegram Bot Menu
+
+```python
+async def set_telegram_commands(bot, registry: CommandRegistry):
+    """Register commands with Telegram's BotFather menu."""
+    commands = []
+    for cmd in registry.list_for_platform("telegram"):
+        # Telegram commands don't have leading /
+        name = cmd.name.lstrip("/")
+        commands.append(BotCommand(name, cmd.description[:256]))
+    await bot.set_my_commands(commands)
+
+# Result: Telegram shows command autocomplete in chat
+```
+
+### Discord Slash Commands
+
+```python
+async def register_discord_commands(client, registry: CommandRegistry):
+    for cmd in registry.list_for_platform("discord"):
+        options = []
+        for arg in (cmd.args or []):
+            opt_type = {"string": 3, "int": 4, "bool": 5, "choice": 3}[arg.type]
+            opt = {"name": arg.name, "description": arg.description,
+                   "type": opt_type, "required": arg.required}
+            if arg.choices:
+                opt["choices"] = [{"name": c, "value": c} for c in arg.choices]
+            options.append(opt)
+        await client.create_global_command(
+            name=cmd.name.lstrip("/"),
+            description=cmd.description,
+            options=options
+        )
+```
+
+### Slack Interactive Menus
+
+```python
+def generate_slack_blocks(registry: CommandRegistry) -> list:
+    """Generate Slack Block Kit command menu."""
+    actions = []
+    for cmd in registry.list_for_platform("slack"):
+        actions.append({
+            "type": "button",
+            "text": {"type": "plain_text", "text": cmd.name},
+            "action_id": f"cmd_{cmd.name.lstrip('/')}",
+            "value": cmd.name
+        })
+    return [{"type": "actions", "elements": actions}]
+```
+
+## Platform-Specific Response Rendering
+
+```python
+async def execute_and_respond(cmd, args, platform):
+    result = await cmd.handler(**args)
+    
+    if platform == "cli":
+        # Rich terminal output with colors
+        return format_cli(result)
+    elif platform == "telegram":
+        # Markdown with inline keyboards for actions
+        return format_telegram(result)
+    elif platform == "discord":
+        # Embed with fields
+        return format_discord_embed(result)
+    elif platform == "slack":
+        # Block Kit with sections
+        return format_slack_blocks(result)
+```
+
+## Plugin Extensibility
+
+Plugins register commands at startup:
+
+```python
+# plugins/monitoring.py
+def register(registry: CommandRegistry):
+    registry.register(CommandDef(
+        name="/health",
+        description="Run health checks on all services",
+        handler=health_check,
+        aliases=["/hc"],
+    ))
+    registry.register(CommandDef(
+        name="/metrics",
+        description="Show system metrics",
+        handler=show_metrics,
+    ))
+
+# main.py — load plugins
+for plugin in discover_plugins():
+    plugin.register(registry)
+```
+
+## Example: /status End-to-End
+
+Define once:
+```python
+registry.register(CommandDef(
+    name="/status",
+    description="Show system status",
+    handler=handle_status,
+))
+
+async def handle_status() -> dict:
+    return {
+        "uptime": get_uptime(),
+        "tasks": {"total": 12, "done": 8, "active": 3, "blocked": 1},
+        "agents": ["frontend", "backend", "devops"],
+        "health": "operational"
+    }
+```
+
+CLI sees:
+```
+⚡ System Status
+  Uptime:  2h 34m
+  Tasks:   12 total (8 done, 3 active, 1 blocked)
+  Agents:  frontend, backend, devops
+  Health:  ✅ Operational
+```
+
+Telegram sees:
+```
+🤖 *System Status*
+⏱ Uptime: 2h 34m
+📋 Tasks: 12 total
+  ✅ 8 done | 🔄 3 active | 🚫 1 blocked
+👥 Agents: frontend, backend, devops
+💚 Health: Operational
+
+[Refresh] [View Tasks] [Settings]  ← inline keyboard
+```
+
+Slack sees: Block Kit sections with action buttons.
+
+**One handler. Every platform. Zero duplication.**
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START templates/agent-discovery.md
+# Agent Discovery — Self-Registering Agent Pattern
+
+> Drop a YAML or Markdown file in the agents directory and it's auto-discovered at boot.
+
+## How It Works
+
+1. On startup, the OS scans `.claude/agents/` (or `.github/agents/`) for `*.md` and `*.yaml` files
+2. Each file is parsed into an agent definition
+3. All discovered agents are registered in an in-memory registry
+4. The team-lead agent can assign tasks to any registered agent
+
+No code changes needed. No config file to update. Just drop a file.
+
+## Agent Definition Format (YAML)
+
+### Required Fields
+
+| Field           | Type       | Description                                    |
+|-----------------|------------|------------------------------------------------|
+| `name`          | string     | Unique agent identifier (e.g. `frontend-dev`)  |
+| `role`          | string     | One-line role description                      |
+| `description`   | string     | What this agent does, when to use it           |
+| `allowed_tools` | list[str]  | Tools this agent can use                       |
+| `triggers`      | list[str]  | Keywords/patterns that route tasks to this agent |
+
+### Optional Fields
+
+| Field              | Type   | Default   | Description                          |
+|--------------------|--------|-----------|--------------------------------------|
+| `max_iterations`   | int    | 10        | Max tool-call loops per task         |
+| `model_preference` | string | (default) | Preferred model (e.g. `claude-opus`) |
+| `cost_limit`       | float  | 5.00      | Max $ spend per invocation           |
+| `timeout_minutes`  | int    | 30        | Hard timeout per task                |
+| `dependencies`     | list   | []        | Other agents this one can delegate to |
+
+## Example: YAML Agent Definition
+
+```yaml
+# .claude/agents/frontend-dev.yaml
+name: frontend-dev
+role: Frontend specialist
+description: |
+  Handles React/Vue/Svelte components, CSS, responsive design,
+  accessibility audits, and frontend build pipelines.
+allowed_tools:
+  - read_file
+  - write_file
+  - terminal
+  - search_files
+  - browser
+triggers:
+  - frontend
+  - react
+  - css
+  - component
+  - UI
+  - responsive
+max_iterations: 15
+model_preference: claude-sonnet
+cost_limit: 3.00
+```
+
+## Example: Markdown Agent Definition
+
+```markdown
+# .claude/agents/devops.md
+---
+name: devops
+role: DevOps and infrastructure specialist
+allowed_tools: [terminal, read_file, write_file, search_files]
+triggers: [deploy, docker, ci, pipeline, kubernetes, terraform]
+max_iterations: 20
+cost_limit: 5.00
+---
+
+You are a DevOps specialist. You handle:
+- CI/CD pipeline configuration
+- Docker and container orchestration
+- Infrastructure as Code (Terraform, Pulumi)
+- Cloud deployment (AWS, Azure, GCP)
+- Monitoring and alerting setup
+
+Always validate configs before applying. Never deploy to production without confirmation.
+```
+
+## Discovery Implementation
+
+```python
+import yaml
+from pathlib import Path
+
+def discover_agents(project_root: Path) -> dict:
+    """Scan agents directory, return {name: AgentDef} registry."""
+    registry = {}
+    for agents_dir in [
+        project_root / ".claude" / "agents",
+        project_root / ".github" / "agents",
+    ]:
+        if not agents_dir.is_dir():
+            continue
+        for f in agents_dir.iterdir():
+            if f.suffix == ".yaml":
+                agent = yaml.safe_load(f.read_text())
+            elif f.suffix == ".md":
+                agent = parse_md_frontmatter(f.read_text())
+            else:
+                continue
+            if agent and "name" in agent:
+                registry[agent["name"]] = agent
+    return registry
+```
+
+## Discovery Directory Structure
+
+```
+.claude/
+  agents/
+    team-lead.md          # orchestrator
+    frontend-dev.yaml     # auto-discovered
+    backend-dev.yaml      # auto-discovered
+    devops.md             # auto-discovered
+    qa-tester.yaml        # auto-discovered
+```
+
+## Agent Registry API
+
+Once discovered, agents are queryable:
+
+```python
+registry = discover_agents(project_root)
+
+# List all agents
+names = list(registry.keys())
+
+# Find agent by trigger keyword
+def find_agent(keyword: str) -> str | None:
+    for name, defn in registry.items():
+        if keyword.lower() in [t.lower() for t in defn.get("triggers", [])]:
+            return name
+    return None
+
+# Route a task
+agent = find_agent("react")  # -> "frontend-dev"
+```
+
+## Validation
+
+On discovery, validate each agent definition:
+
+1. `name` must be unique across all discovered agents
+2. `allowed_tools` must reference valid tool names
+3. `triggers` must be non-empty (otherwise agent is never routed to)
+4. `cost_limit` must be positive if set
+5. Log warnings for malformed files, skip them, don't crash
+
+## Hot Reload
+
+For development, watch the agents directory:
+
+```python
+# Re-scan every N seconds or on file change
+import time
+last_scan = 0
+SCAN_INTERVAL = 30  # seconds
+
+def get_registry(project_root):
+    global last_scan, _registry
+    if time.time() - last_scan > SCAN_INTERVAL:
+        _registry = discover_agents(project_root)
+        last_scan = time.time()
+    return _registry
+```
+
+## Best Practices
+
+- One agent per file — keeps definitions atomic and diffable
+- Use YAML for pure config, Markdown for agents with system prompts
+- Keep trigger lists specific — avoid generic words like "code" or "help"
+- Set conservative cost_limit defaults, raise per-agent as needed
+- Version control your agents/ directory — it's your team definition
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START dashboard/themes/default.json
+{
+  "name": "Default",
+  "colors": {
+    "primary": "#00d4ff",
+    "secondary": "#a78bfa",
+    "bg": "#0a0a1a",
+    "text": "#e0e0e0",
+    "accent": "#00d4ff",
+    "success": "#00ff88",
+    "warning": "#ffd60a",
+    "error": "#ff4757"
+  },
+  "fonts": {
+    "heading": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    "body": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+  },
+  "logo_text": "RAOS V3"
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START dashboard/themes/dark.json
+{
+  "name": "Dark",
+  "colors": {
+    "primary": "#bb86fc",
+    "secondary": "#03dac6",
+    "bg": "#121212",
+    "text": "#e1e1e1",
+    "accent": "#bb86fc",
+    "success": "#03dac6",
+    "warning": "#ffb74d",
+    "error": "#cf6679"
+  },
+  "fonts": {
+    "heading": "'JetBrains Mono', 'Fira Code', monospace",
+    "body": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+  },
+  "logo_text": "RAOS V3 — Dark Mode"
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+---
+
+**End of embedded files.** Total: 37 blueprint files.
 
 If you are an AI reading this file as a user invocation, you should now be in Step 7 (report what was installed). If you haven't done Steps 1-6 yet, go back to the top and start over. Do not skip ahead.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START assets/image-prompts.md
-# Image Prompts for Ragnar-AgenticOS
-
-Two prompts, same visual language as the Stage 3 "Objective" diagram (cream background, monospace, terminal window, robot-icon agent boxes, warm-brown arrows, sticky-note callouts, pill badges, 16:9).
-
-Paste into Lovart.ai, Nano Banana, or any high-fidelity image generator.
-
----
-
-## Prompt 1. Thumbnail for README (primary)
-
-**Title in image:** Your Agentic Team Builds It
-
-Clean minimalist technical documentation illustration. Warm cream/parchment background (#F3ECD8). Bold black monospace typography throughout. Terminal-view aesthetic. 16:9 aspect ratio.
-
-Visual language (match exactly):
-
-- Rounded-rectangle agent boxes outlined in warm brown (#8B6F47), each with a small robot-head icon in the top-right corner.
-- A macOS-style terminal window with red / yellow / green traffic lights, cream-colored content area, monospace text.
-- Thin warm-brown arrows connecting elements. Dashed brown lines for "shared task" references.
-- Sticky-note callout boxes (slightly off-white, rounded, soft drop shadow).
-- Pill-shaped badges in brown for labels like "RAGNAR-AGENTIC-OS" and "STAGE 3".
-- Olive-green checkmarks for "done" states. No other bright colors.
-
-Layout (left to right):
-
-1. **Top-left pill badge:** `RAGNAR-AGENTIC-OS`
-2. **Timestamp strap just under the pill badge (small caps, warm brown, letter-spaced):** `APRIL 2026. HERE IS WHERE WE SHOULD BE.`
-3. **Huge bold title just below:** `Your Agentic Team Builds It`
-4. **Sub-tagline (monospace, smaller):** `One objective. End-to-end Copilot Studio agent: research, policies, build, deploy. Delivered by your subagent team.`
-
-5. **Left column (input side):**
-   - A circular "You" avatar, labeled `objective setter`.
-   - An arrow to a sticky-note:
-     ```
-     OBJECTIVE: Build a customer-facing
-     Copilot Studio agent end-to-end.
-     Include customer research, agent
-     design, policies, skills, deploy
-     to production environment.
-     ```
-
-6. **Center top, terminal window** titled `Terminal - Ragnar-AgenticOS`:
-   ```
-   $ /my-os "build procurement agent end-to-end"
-   > parsing objective...
-   > composing 6-subagent team
-   > research -> challenge -> synthesis
-   > tracking via shared_tasks.md
-   > team active_
-   ```
-
-7. **Center, team of 6 subagent boxes arranged around a central orchestrator:**
-   - Center: `team-lead` with a small crown icon, label `orchestrator`
-   - Around it (clockwise from top): `customer-research` (label: `interviews + brief`), `copilot-studio-agent` (label: `YAML topics + skills`), `dataverse-agent` (label: `policy tables + metadata`), `pac-cli` (label: `auth + environments`), `azure-agent` (label: `deploy + Key Vault`), `ado-agent` (label: `work items`)
-   - Thin warm-brown arrows between every subagent and the team-lead.
-
-8. **Center-bottom sticky-note** labeled `shared_tasks.md`, dashed lines from every subagent to it:
-   ```
-   [x] customer research
-   [x] agent needs brief
-   [x] policies in Dataverse
-   [x] Copilot Studio topics
-   [x] skills + plugins
-   [ ] deploy + verify
-   ```
-
-9. **Right column (output side):**
-   - A verification gate rendered as two warm-brown pillars, labeled `verification`.
-   - After the gate, a stack of three output files with checkmarks:
-     - `customer_research.md`
-     - `agent_policies.yaml`
-     - `procurement_agent.deployed`
-
-10. **Environment hint callout** (top-right sticky-note):
-   ```
-   CLAUDE_CODE=yes
-   COPILOT_CLI=yes
-   context: fork
-   ```
-
-11. **Bottom banner (all caps, centered, spanning full width, small brown letters):**
-    `YOU SET THE OBJECTIVE. THE OS COMPOSES THE TEAM. THE TEAM DELIVERS THE RESULT.`
-
-12. **Author signature (bottom-right corner):**
-    Render the text `by Ragnar Pitla` in **bold black monospace**, clearly legible (roughly 2x the weight of the bottom banner). Place it in the bottom-right corner with a small amount of padding from the edges. No box, no underline. Treat it like a creator credit, unmistakable but not dominant.
-
-Do NOT include any Mercedes, Angebots-Prüfung, Niyam, or customer-specific references. Keep it generic and aspirational.
-
----
-
-## Prompt 2. Task vs Objective comparison (optional, for decks or blog)
-
-**Title in image:** From Task to Objective
-
-Same cream + monospace + warm-brown style as Prompt 1. 16:9. Split vertically down the middle with a subtle warm-brown dividing line.
-
-**Top strap across the full width, above the two halves (small caps, warm brown, letter-spaced):** `APRIL 2026. HERE IS WHERE WE SHOULD BE.`
-
-**Author signature (bottom-right corner):** `by Ragnar Pitla` in bold black monospace, roughly 2x the weight of the bottom banner. Bottom-right with small padding. No box, no underline. Clear creator credit.
-
-### Left half - `STAGE 1. Task-based CLI`
-
-- Top pill badge: `STAGE 1`
-- Bold title: `Regular CLI`
-- Sub-tagline: `You type prompts. One at a time. You hold the plan in your head.`
-- Circular "You" avatar with an arrow to a terminal window showing:
-  ```
-  $ write me a python script
-  > here you go...
-  $ now add error handling
-  > updated...
-  $ now write tests
-  > updated again...
-  $ why is this failing?
-  > try this fix...
-  ```
-- Below the terminal, a trail of small prompt-bubbles labeled `prompt 1 -> prompt 2 -> prompt 3 -> prompt 4 -> ...` trailing off the edge.
-- Bottom label in small caps: `YOU DECOMPOSE. YOU QA. YOU INTEGRATE. YOU HOLD STATE.`
-
-### Right half - `STAGE 3. Objective-based Agentic OS`
-
-- Top pill badge: `STAGE 3`
-- Bold title: `Ragnar-Agentic-OS`
-- Sub-tagline: `You set the outcome. The OS composes the team. The team delivers.`
-- Circular "You" avatar with a single sticky-note:
-  ```
-  OBJECTIVE: Build a Copilot Studio
-  agent end-to-end with policies,
-  skills, and production deploy.
-  ```
-- Arrow into a terminal window titled `Ragnar-Agentic-OS` showing:
-  ```
-  $ /my-os "build it"
-  > composing team of 6 subagents...
-  > research -> challenge -> synthesis
-  > verifying against success criteria
-  > done_
-  ```
-- Below the terminal, a cluster of 6 agent boxes with robot icons: `pac-cli`, `dataverse-agent`, `copilot-studio-agent`, `azure-agent`, `ado-agent`, `customer-research`, all connected to a central `team-lead` with a crown.
-- Arrow out of the cluster to a stack of deliverables on the far right: `agent.deployed`, `policies.yaml`, `skills.bundle`, `research.md`, each with an olive-green checkmark.
-- Bottom label in small caps: `THE TEAM WRITES THE PLAN. YOU APPROVE GATES, NOT STEPS.`
-
-### Bottom center banner spanning full width
-
-`FROM TASK-BASED PROMPTING TO OBJECTIVE-BASED DELIVERY.`
-
-Same muted palette. No other colors besides cream, black, warm brown, and subtle olive-green checkmarks.
-
----
-
-## Usage
-
-1. Paste Prompt 1 into Lovart.ai / Nano Banana / preferred generator.
-2. Save output as `assets/ragnar-agentic-os-thumbnail.png` in this folder.
-3. The README already links to that path, so it will render once the file is there.
-4. Prompt 2 is optional. Save as `assets/task-vs-objective.png` if generated.
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
-
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START commands/raos.md
 ---
-description: Ragnar's Agentic OS V2 (Scaffold). Bootstrap a team, check status, accept an objective, or resume/kill a run. /raos (no args) auto-detects. /raos <sentence> runs an objective. /raos status shows the dashboard. /raos runs lists all runs. /raos resume <run_id> continues a paused run. /raos kill <run_id> halts a run. /raos reset wipes the team.
+description: Ragnar's Agentic OS V2 (Scaffold) for GitHub Copilot CLI. Bootstrap a team, check status, accept an objective, or resume/kill a run. /raos (no args) auto-detects. /raos <sentence> runs an objective. /raos status shows the dashboard. /raos runs lists all runs. /raos resume <run_id> continues a paused run. /raos kill <run_id> halts a run. /raos reset wipes the team.
 ---
 
 Invoke the `raos` skill. Follow the flow in [~/.github/skills/raos/SKILL.md](~/.github/skills/raos/SKILL.md).
@@ -2864,8 +5744,8 @@ Detection logic (before doing anything else):
    - **Empty + team exists** → show **Status**: list agents in `.github/agents/`, summarize `tasks.json` (open/in-progress/done counts), list active runs from `.agentic-os/runs/` with their phase/status, last activity time. Offer next actions.
    - **`status`** → same as status above.
    - **`runs`** → list every run in `.agentic-os/runs/`: run_id, objective_statement (truncated), status, current_phase, updated_at. Sorted by updated_at, newest first. Tell the user how to resume or kill each one.
-   - **`resume <run_id>`** → the UserPromptSubmit hook has already marked the run active. Read `.agentic-os/runs/<run_id>/manifest.yaml`, `checkpoint.json`, `verification.yaml`, and the tail of `trace.ndjson`. Announce: "Resuming <run_id>. Last phase: <phase>. Status: <status>. Continuing with <next step>." Then pick up where the team left off. No re-decomposition. See [references/recipes/resume-after-crash.md](~/.github/skills/raos/references/recipes/resume-after-crash.md).
-   - **`kill <run_id>`** → the UserPromptSubmit hook has already dropped the KILL sentinel. Acknowledge to the user: "Run <run_id> marked killed. Drop the KILL file at <path> to resume." Then stop.
+   - **`resume <run_id>`** → Read `.agentic-os/runs/<run_id>/manifest.yaml`, `checkpoint.json`, `verification.yaml`, and the tail of `trace.ndjson`. Mark the run active by writing `<run_id>` to `.agentic-os/runs/.active`. Announce: "Resuming <run_id>. Last phase: <phase>. Status: <status>. Continuing with <next step>." Then pick up where the team left off. No re-decomposition. See [references/recipes/resume-after-crash.md](~/.github/skills/raos/references/recipes/resume-after-crash.md).
+   - **`kill <run_id>`** → Write a KILL sentinel file to `.agentic-os/runs/<run_id>/KILL`. Acknowledge to the user: "Run <run_id> marked killed. Delete the KILL file to resume." Then stop.
    - **`reset`** → confirm with the user ("this will delete `.github/agents/`, `tasks.json`, and `.agentic-os/runs/`. git-tracked? type YES to proceed"). Only on explicit YES, wipe.
    - **Any other text + team exists** → treat as an **objective**. Reformat into the shape from [templates/objective.template.md](~/.github/skills/raos/templates/objective.template.md), confirm with user, then create the run folder and dispatch via the 4-phase pattern (Research → Challenge → Synthesis → Verify via evaluator). See [references/run-lifecycle.md](~/.github/skills/raos/references/run-lifecycle.md).
    - **Any other text + no team** → bootstrap first, then take the objective.
@@ -2875,14 +5755,751 @@ Always:
 - Respect the guardrails in SKILL.md §Guardrails for every action.
 - Every objective becomes a run. Write `.agentic-os/runs/<run_id>/manifest.yaml` on accept. No exceptions.
 - Update both `tasks.json` (for the dashboard) and the run's `manifest.yaml` (for durable state) as phases complete.
-- Use the Agent tool to dispatch parallel work (subagent_type: Explore for Research, Plan for Challenge, project specialists for Synthesis, `evaluator` for Verify).
+- Invoke specialists by reading their agent file from `.github/agents/` and following their instructions. Prefer parallel invocation when tasks are independent.
+- Write checkpoints at every phase boundary (no hooks to do this automatically on Copilot CLI).
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START dashboard/index.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAOS V2 — Mission Control</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0a0a1a;--surface:#1a1a2e;--surface2:#16213e;--surface3:#0f3460;--accent:#00d4ff;--accent2:#00ff88;--text:#e0e0e0;--text2:#8892a4;--yellow:#ffd60a;--blue:#00d4ff;--green:#00ff88;--red:#ff4757;--glass:rgba(255,255,255,.05);--glass-border:rgba(255,255,255,.08);--radius:12px;--radius-sm:8px;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+html{font-family:var(--font);background:var(--bg);color:var(--text);height:100%}
+body{display:flex;height:100vh;overflow:hidden}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:3px}
+
+/* SIDEBAR */
+.sidebar{width:240px;background:linear-gradient(180deg,var(--surface) 0%,#0d0d20 100%);border-right:1px solid var(--glass-border);padding:24px 16px;display:flex;flex-direction:column;gap:20px;flex-shrink:0}
+.logo{font-size:13px;font-weight:700;color:var(--accent);letter-spacing:1.5px;text-transform:uppercase;line-height:1.4}
+.logo span{display:block;font-size:10px;color:var(--text2);font-weight:400;letter-spacing:.5px;margin-top:2px}
+.status-block{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:14px;display:flex;flex-direction:column;gap:10px}
+.status-row{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text2)}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.status-dot.green{background:var(--green);box-shadow:0 0 8px var(--green)}
+.status-dot.red{background:var(--red);box-shadow:0 0 8px var(--red)}
+.status-label{color:var(--text);font-weight:500}
+.sidebar-nav{display:flex;flex-direction:column;gap:4px;margin-top:8px}
+.nav-btn{background:none;border:none;color:var(--text2);font:inherit;font-size:13px;padding:10px 12px;border-radius:var(--radius-sm);cursor:pointer;text-align:left;transition:all .2s;display:flex;align-items:center;gap:10px}
+.nav-btn:hover{background:var(--glass);color:var(--text)}
+.nav-btn.active{background:rgba(0,212,255,.1);color:var(--accent);font-weight:600}
+.nav-btn .icon{font-size:16px;width:20px;text-align:center}
+.sidebar-footer{margin-top:auto;font-size:10px;color:var(--text2);opacity:.5;text-align:center}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.header{padding:20px 32px;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,rgba(0,212,255,.03),transparent)}
+.header h1{font-size:18px;font-weight:600;background:linear-gradient(135deg,var(--accent),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header-right{font-size:11px;color:var(--text2)}
+.content{flex:1;overflow-y:auto;padding:28px 32px}
+
+/* TAB CONTENT */
+.tab-content{display:none;animation:fadeIn .3s ease}
+.tab-content.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ONBOARDING */
+.wizard{max-width:640px;margin:0 auto}
+.progress-bar{display:flex;gap:4px;margin-bottom:32px}
+.progress-step{flex:1;height:4px;background:var(--surface2);border-radius:2px;transition:background .4s}
+.progress-step.done{background:var(--accent)}
+.progress-step.current{background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.step-panel{display:none;animation:slideIn .35s ease}
+.step-panel.active{display:block}
+@keyframes slideIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+.step-label{font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;margin-bottom:8px}
+.step-title{font-size:22px;font-weight:700;margin-bottom:6px}
+.step-desc{font-size:13px;color:var(--text2);margin-bottom:24px;line-height:1.6}
+.form-input{width:100%;padding:14px 16px;background:var(--surface);border:1px solid var(--glass-border);border-radius:var(--radius-sm);color:var(--text);font:inherit;font-size:14px;outline:none;transition:border-color .2s}
+.form-input:focus{border-color:var(--accent)}
+.form-input::placeholder{color:var(--text2)}
+.checkbox-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cb-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:14px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:10px;font-size:13px}
+.cb-card:hover{border-color:rgba(0,212,255,.3)}
+.cb-card.selected{border-color:var(--accent);background:rgba(0,212,255,.08)}
+.cb-card input{display:none}
+.cb-check{width:18px;height:18px;border:2px solid var(--text2);border-radius:4px;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;font-size:11px;color:transparent}
+.cb-card.selected .cb-check{border-color:var(--accent);background:var(--accent);color:#000}
+.step-actions{display:flex;gap:12px;margin-top:28px}
+.btn{padding:12px 28px;border-radius:var(--radius-sm);font:inherit;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#0090ff);color:#000}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,212,255,.3)}
+.btn-secondary{background:var(--glass);border:1px solid var(--glass-border);color:var(--text)}
+.btn-secondary:hover{border-color:var(--accent)}
+.btn-deploy{padding:16px 48px;font-size:15px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#000;letter-spacing:.5px}
+.btn-deploy:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,212,255,.35)}
+.review-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius);padding:24px;margin-bottom:24px}
+.review-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--glass-border);font-size:13px}
+.review-row:last-child{border:none}
+.review-row .label{color:var(--text2)}
+.review-row .value{color:var(--text);font-weight:500}
+.success-screen{text-align:center;padding:48px 0}
+.success-icon{font-size:64px;margin-bottom:16px;animation:popIn .5s ease}
+@keyframes popIn{0%{transform:scale(0)}50%{transform:scale(1.2)}100%{transform:scale(1)}}
+.success-screen h2{font-size:24px;margin-bottom:8px;color:var(--accent2)}
+.success-screen p{color:var(--text2);font-size:14px}
+
+/* TASK MONITOR */
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.stat-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:16px;text-align:center}
+.stat-value{font-size:28px;font-weight:700;background:linear-gradient(135deg,var(--accent),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-top:4px}
+.objective-bar{background:linear-gradient(90deg,rgba(0,212,255,.08),transparent);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:16px 20px;margin-bottom:24px;display:flex;align-items:center;gap:12px}
+.objective-bar .obj-label{font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;font-weight:600}
+.objective-bar .obj-title{font-size:15px;font-weight:600}
+.kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;min-height:300px}
+.kanban-col{background:rgba(255,255,255,.02);border:1px solid var(--glass-border);border-radius:var(--radius);padding:12px;display:flex;flex-direction:column;gap:8px}
+.kanban-col-header{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;padding:8px 4px;display:flex;align-items:center;gap:8px}
+.col-dot{width:8px;height:8px;border-radius:50%}
+.col-pending .col-dot{background:var(--yellow)}
+.col-progress .col-dot{background:var(--blue)}
+.col-done .col-dot{background:var(--green)}
+.col-blocked .col-dot{background:var(--red)}
+.col-pending .kanban-col-header{color:var(--yellow)}
+.col-progress .kanban-col-header{color:var(--blue)}
+.col-done .kanban-col-header{color:var(--green)}
+.col-blocked .kanban-col-header{color:var(--red)}
+.task-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:12px;transition:all .25s;animation:cardIn .3s ease}
+.task-card:hover{border-color:rgba(0,212,255,.2);transform:translateY(-2px)}
+@keyframes cardIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:none}}
+.task-id{font-size:10px;color:var(--accent);font-weight:600;font-family:monospace}
+.task-title{font-size:13px;font-weight:500;margin:6px 0}
+.task-agent{font-size:11px;color:var(--text2);display:flex;align-items:center;gap:4px}
+.task-time{font-size:10px;color:var(--text2);opacity:.6;margin-top:6px}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.badge-pending{background:rgba(255,214,10,.15);color:var(--yellow)}
+.badge-in-progress{background:rgba(0,212,255,.15);color:var(--blue)}
+.badge-done{background:rgba(0,255,136,.15);color:var(--green)}
+.badge-blocked{background:rgba(255,71,87,.15);color:var(--red)}
+.empty-state{text-align:center;padding:64px 0;color:var(--text2)}
+.empty-state .empty-icon{font-size:48px;margin-bottom:16px;opacity:.4}
+.empty-state h3{font-size:16px;margin-bottom:8px;color:var(--text)}
+.empty-state p{font-size:13px}
+.kanban-cards{display:flex;flex-direction:column;gap:8px;flex:1;overflow-y:auto}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo">RAOS V2<span>Ragnar Agentic OS — Mission Control</span></div>
+  <div class="status-block" id="statusBlock">
+    <div class="status-row"><div class="status-dot green" id="statusDot"></div><span class="status-label" id="connLabel">Connected</span></div>
+    <div class="status-row"><span>Project:</span></div>
+    <div class="status-row" style="word-break:break-all;color:var(--text);font-size:10px" id="projectPath">—</div>
+    <div class="status-row"><span>Runtime:</span><span class="status-label" id="runtimeLabel">—</span></div>
+    <div class="status-row"><span>OS Name:</span><span class="status-label" id="osNameLabel">—</span></div>
+  </div>
+  <nav class="sidebar-nav">
+    <button class="nav-btn active" data-tab="onboard"><span class="icon">🚀</span>Onboarding</button>
+    <button class="nav-btn" data-tab="tasks"><span class="icon">📋</span>Task Monitor</button>
+  </nav>
+  <div class="sidebar-footer">v2.0 · Built with ♥ by Ragnar</div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <header class="header">
+    <h1>Ragnar Agentic OS V2 — Mission Control</h1>
+    <div class="header-right">
+      <select id="themeSwitcher" style="background:var(--surface);color:var(--text);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:4px 8px;font-size:11px;margin-right:12px;cursor:pointer;outline:none">
+        <option value="">Loading themes...</option>
+      </select>
+      <span id="clockDisplay"></span>
+    </div>
+  </header>
+  <div class="content">
+
+    <!-- ONBOARDING TAB -->
+    <div class="tab-content active" id="tab-onboard">
+      <div class="wizard">
+        <div class="progress-bar" id="progressBar">
+          <div class="progress-step current"></div>
+          <div class="progress-step"></div>
+          <div class="progress-step"></div>
+          <div class="progress-step"></div>
+        </div>
+
+        <!-- Step 1 -->
+        <div class="step-panel active" data-step="1">
+          <div class="step-label">Step 1 of 4</div>
+          <div class="step-title">Name your OS</div>
+          <div class="step-desc">Choose a unique name for this Agentic OS instance. This identifies your project workspace.</div>
+          <input class="form-input" id="osName" placeholder="e.g. kumi-os, atlas-prime, nova-7" autofocus>
+          <div class="step-actions"><button class="btn btn-primary" onclick="nextStep()">Continue →</button></div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="step-panel" data-step="2">
+          <div class="step-label">Step 2 of 4</div>
+          <div class="step-title">Set your boot phrase</div>
+          <div class="step-desc">This phrase activates your OS when you start a new session. Make it memorable.</div>
+          <input class="form-input" id="bootPhrase" placeholder='e.g. "Boot kumi-os" or "Engage systems"'>
+          <div class="step-actions">
+            <button class="btn btn-secondary" onclick="prevStep()">← Back</button>
+            <button class="btn btn-primary" onclick="nextStep()">Continue →</button>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="step-panel" data-step="3">
+          <div class="step-label">Step 3 of 4</div>
+          <div class="step-title">Choose specialists</div>
+          <div class="step-desc">Select which specialist agents to deploy. You can always add more later.</div>
+          <div class="checkbox-grid" id="specialistGrid"></div>
+          <div class="step-actions">
+            <button class="btn btn-secondary" onclick="prevStep()">← Back</button>
+            <button class="btn btn-primary" onclick="nextStep()">Continue →</button>
+          </div>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="step-panel" data-step="4">
+          <div class="step-label">Step 4 of 4</div>
+          <div class="step-title">Review & Deploy</div>
+          <div class="step-desc">Confirm your configuration and deploy your Agentic OS.</div>
+          <div class="review-card" id="reviewCard"></div>
+          <div class="step-actions" style="justify-content:center">
+            <button class="btn btn-secondary" onclick="prevStep()">← Back</button>
+            <button class="btn btn-deploy" onclick="deploy()">⚡ Deploy RAOS V2</button>
+          </div>
+        </div>
+
+        <!-- Success -->
+        <div class="step-panel" data-step="5">
+          <div class="success-screen">
+            <div class="success-icon">✅</div>
+            <h2>OS Deployed Successfully!</h2>
+            <p>Your Agentic OS is configured and ready. Switch to Task Monitor to track progress.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TASKS TAB -->
+    <div class="tab-content" id="tab-tasks">
+      <div class="stats-bar">
+        <div class="stat-card"><div class="stat-value" id="statTotal">0</div><div class="stat-label">Total Tasks</div></div>
+        <div class="stat-card"><div class="stat-value" id="statDone">0</div><div class="stat-label">Completed</div></div>
+        <div class="stat-card"><div class="stat-value" id="statProgress">0</div><div class="stat-label">In Progress</div></div>
+        <div class="stat-card"><div class="stat-value" id="statUptime">0s</div><div class="stat-label">Uptime</div></div>
+      </div>
+      <div class="objective-bar" id="objectiveBar" style="display:none">
+        <div><div class="obj-label">Current Objective</div><div class="obj-title" id="objTitle">—</div></div>
+      </div>
+      <div id="kanbanArea"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// State
+let currentStep = 1;
+const defaultSpecialists = ['ADO','Dataverse','Frontend','Backend','DevOps','Testing','Docs'];
+
+// --- TABS ---
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// --- SIDEBAR STATUS ---
+async function updateStatus() {
+  try {
+    const [status, config] = await Promise.all([
+      fetch('/api/status').then(r => r.json()),
+      fetch('/api/config').then(r => r.json())
+    ]);
+    document.getElementById('statusDot').className = 'status-dot green';
+    document.getElementById('connLabel').textContent = 'Connected';
+    document.getElementById('projectPath').textContent = status.project_root || '—';
+    document.getElementById('runtimeLabel').textContent = status.runtime || '—';
+    document.getElementById('osNameLabel').textContent = config.os_name || 'Not configured';
+    if (config.specialists && config.specialists.length) {
+      populateSpecialists(config.specialists);
+    } else {
+      populateSpecialists(defaultSpecialists);
+    }
+    // uptime
+    const s = Math.floor(status.uptime_seconds);
+    const m = Math.floor(s/60), h = Math.floor(m/60);
+    document.getElementById('statUptime').textContent = h > 0 ? `${h}h ${m%60}m` : m > 0 ? `${m}m ${s%60}s` : `${s}s`;
+  } catch {
+    document.getElementById('statusDot').className = 'status-dot red';
+    document.getElementById('connLabel').textContent = 'Disconnected';
+  }
+}
+
+let specialistsPopulated = false;
+function populateSpecialists(list) {
+  if (specialistsPopulated) return;
+  specialistsPopulated = true;
+  const grid = document.getElementById('specialistGrid');
+  grid.innerHTML = '';
+  list.forEach(name => {
+    const card = document.createElement('label');
+    card.className = 'cb-card';
+    card.innerHTML = `<input type="checkbox" value="${name}" checked><div class="cb-check">✓</div><span>${name}</span>`;
+    card.classList.add('selected');
+    card.addEventListener('click', e => {
+      if (e.target.tagName === 'INPUT') return;
+      const cb = card.querySelector('input');
+      cb.checked = !cb.checked;
+      card.classList.toggle('selected', cb.checked);
+    });
+    grid.appendChild(card);
+  });
+}
+
+// --- WIZARD ---
+function showStep(n) {
+  currentStep = n;
+  document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.step-panel[data-step="${n}"]`).classList.add('active');
+  document.querySelectorAll('.progress-step').forEach((s, i) => {
+    s.className = 'progress-step' + (i < n - 1 ? ' done' : i === n - 1 ? ' current' : '');
+  });
+  if (n === 4) buildReview();
+}
+function nextStep() { if (currentStep < 5) showStep(currentStep + 1); }
+function prevStep() { if (currentStep > 1) showStep(currentStep - 1); }
+
+function getSelectedSpecialists() {
+  return [...document.querySelectorAll('#specialistGrid input:checked')].map(c => c.value);
+}
+
+function buildReview() {
+  const card = document.getElementById('reviewCard');
+  const specs = getSelectedSpecialists();
+  card.innerHTML = `
+    <div class="review-row"><span class="label">OS Name</span><span class="value">${document.getElementById('osName').value || '(empty)'}</span></div>
+    <div class="review-row"><span class="label">Boot Phrase</span><span class="value">${document.getElementById('bootPhrase').value || '(empty)'}</span></div>
+    <div class="review-row"><span class="label">Specialists</span><span class="value">${specs.join(', ') || 'None'}</span></div>
+    <div class="review-row"><span class="label">Agents Count</span><span class="value">${specs.length}</span></div>
+  `;
+}
+
+async function deploy() {
+  const data = {
+    os_name: document.getElementById('osName').value,
+    boot_phrase: document.getElementById('bootPhrase').value,
+    specialists: getSelectedSpecialists()
+  };
+  try {
+    await fetch('/api/onboard', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+    showStep(5);
+    document.querySelectorAll('.progress-step').forEach(s => s.className = 'progress-step done');
+  } catch (e) {
+    alert('Deploy failed: ' + e.message);
+  }
+}
+
+// --- TASK MONITOR ---
+let prevTaskIds = new Set();
+function renderTasks(data) {
+  const tasks = data.tasks || [];
+  const obj = data.objective;
+
+  // Stats
+  document.getElementById('statTotal').textContent = tasks.length;
+  document.getElementById('statDone').textContent = tasks.filter(t => t.status === 'done').length;
+  document.getElementById('statProgress').textContent = tasks.filter(t => t.status === 'in-progress').length;
+
+  // Objective
+  const bar = document.getElementById('objectiveBar');
+  if (obj && obj.title) {
+    bar.style.display = 'flex';
+    document.getElementById('objTitle').textContent = `${obj.title}`;
+  } else {
+    bar.style.display = 'none';
+  }
+
+  if (!tasks.length) {
+    document.getElementById('kanbanArea').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📭</div>
+        <h3>No active objective</h3>
+        <p>Start a task in your agentic OS to see it tracked here in real-time.</p>
+      </div>`;
+    return;
+  }
+
+  const cols = { pending: [], 'in-progress': [], done: [], blocked: [] };
+  tasks.forEach(t => { (cols[t.status] || cols.pending).push(t); });
+
+  const badgeCls = s => `badge badge-${s}`;
+  const renderCard = t => `
+    <div class="task-card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span class="task-id">${t.id}</span>
+        <span class="${badgeCls(t.status)}">${t.status}</span>
+      </div>
+      <div class="task-title">${t.title || '—'}</div>
+      <div class="task-agent">👤 ${t.agent || 'unassigned'}</div>
+      ${t.updated ? `<div class="task-time">${new Date(t.updated).toLocaleString()}</div>` : ''}
+    </div>`;
+
+  const renderCol = (key, label, items) => `
+    <div class="kanban-col col-${key === 'in-progress' ? 'progress' : key}">
+      <div class="kanban-col-header"><div class="col-dot"></div>${label} (${items.length})</div>
+      <div class="kanban-cards">${items.map(renderCard).join('')}</div>
+    </div>`;
+
+  document.getElementById('kanbanArea').innerHTML = `<div class="kanban">
+    ${renderCol('pending','Pending',cols.pending)}
+    ${renderCol('in-progress','In Progress',cols['in-progress'])}
+    ${renderCol('done','Done',cols.done)}
+    ${renderCol('blocked','Blocked',cols.blocked)}
+  </div>`;
+}
+
+async function pollTasks() {
+  try {
+    const data = await fetch('/api/tasks').then(r => r.json());
+    renderTasks(data);
+  } catch { /* offline */ }
+}
+
+// --- CLOCK ---
+function updateClock() {
+  document.getElementById('clockDisplay').textContent = new Date().toLocaleString();
+}
+
+// --- THEME ENGINE ---
+async function loadThemes() {
+  try {
+    const themes = await fetch('/api/themes').then(r => r.json());
+    const sel = document.getElementById('themeSwitcher');
+    sel.innerHTML = '';
+    themes.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.name;
+      opt.textContent = '🎨 ' + t.name;
+      sel.appendChild(opt);
+    });
+    const saved = localStorage.getItem('raos-theme');
+    if (saved) {
+      sel.value = saved;
+      applyTheme(themes.find(t => t.name === saved) || themes[0]);
+    } else {
+      applyTheme(themes[0]);
+    }
+    sel.addEventListener('change', async () => {
+      const name = sel.value;
+      localStorage.setItem('raos-theme', name);
+      const theme = await fetch('/api/theme?name=' + encodeURIComponent(name)).then(r => r.json());
+      applyTheme(theme);
+    });
+  } catch { /* theme loading failed, use CSS defaults */ }
+}
+
+function applyTheme(theme) {
+  const root = document.documentElement;
+  if (theme.colors) {
+    root.style.setProperty('--bg', theme.colors.bg);
+    root.style.setProperty('--accent', theme.colors.accent || theme.colors.primary);
+    root.style.setProperty('--text', theme.colors.text);
+    root.style.setProperty('--green', theme.colors.success);
+    root.style.setProperty('--yellow', theme.colors.warning);
+    root.style.setProperty('--red', theme.colors.error);
+    if (theme.colors.primary) root.style.setProperty('--blue', theme.colors.primary);
+    if (theme.colors.secondary) {
+      root.style.setProperty('--surface', theme.colors.bg === '#121212' ? '#1e1e1e' : '#1a1a2e');
+    }
+  }
+  if (theme.fonts) {
+    if (theme.fonts.heading) root.style.setProperty('--font', theme.fonts.body || theme.fonts.heading);
+  }
+  if (theme.logo_text) {
+    const logo = document.querySelector('.logo');
+    if (logo) logo.childNodes[0].textContent = theme.logo_text;
+  }
+}
+
+// --- INIT ---
+updateStatus();
+updateClock();
+pollTasks();
+loadThemes();
+setInterval(updateStatus, 10000);
+setInterval(pollTasks, 3000);
+setInterval(updateClock, 1000);
+populateSpecialists(defaultSpecialists);
+</script>
+</body>
+</html>
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START dashboard/server.py
+#!/usr/bin/env python3
+"""RAOS V2 Dashboard Server — Pure Python 3, no dependencies."""
+
+import argparse
+import json
+import os
+import signal
+import sys
+import time
+import webbrowser
+from datetime import datetime, timezone
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+from pathlib import Path
+from urllib.parse import parse_qs
+
+START_TIME = time.time()
+DASHBOARD_DIR = Path(__file__).parent.resolve()
+THEMES_DIR = DASHBOARD_DIR / "themes"
+
+# Hardcoded fallback theme if no theme files exist
+DEFAULT_THEME = {
+    "name": "Default",
+    "colors": {
+        "primary": "#00d4ff", "secondary": "#a78bfa", "bg": "#0a0a1a",
+        "text": "#e0e0e0", "accent": "#00d4ff", "success": "#00ff88",
+        "warning": "#ffd60a", "error": "#ff4757"
+    },
+    "fonts": {
+        "heading": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        "body": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+    },
+    "logo_text": "RAOS V3"
+}
+
+
+def load_themes() -> list[dict]:
+    """Load all theme JSON files from themes/ directory."""
+    themes = []
+    if THEMES_DIR.is_dir():
+        for tf in sorted(THEMES_DIR.glob("*.json")):
+            try:
+                themes.append(json.loads(tf.read_text()))
+            except Exception:
+                pass
+    if not themes:
+        themes = [DEFAULT_THEME]
+    return themes
+
+
+def get_theme(name: str | None = None) -> dict:
+    """Get a specific theme by name, or the first available."""
+    themes = load_themes()
+    if name:
+        for t in themes:
+            if t.get("name", "").lower() == name.lower():
+                return t
+    return themes[0]
+
+
+def detect_runtime(project_root: Path) -> str:
+    if (project_root / ".github").is_dir():
+        return "GitHub Copilot CLI"
+    if (project_root / ".claude").is_dir():
+        return "Claude Code"
+    return "Unknown"
+
+
+def find_tasks_json(project_root: Path) -> Path | None:
+    for p in [project_root / ".github" / "tasks.json", project_root / ".claude" / "tasks.json"]:
+        if p.is_file():
+            return p
+    return None
+
+
+def list_agents(project_root: Path) -> list[str]:
+    for d in [project_root / ".github" / "agents", project_root / ".claude" / "agents"]:
+        if d.is_dir():
+            return sorted(p.stem for p in d.glob("*.md"))
+    return []
+
+
+def get_os_name(project_root: Path) -> str:
+    for cfg_path in [project_root / ".github" / "config.json", project_root / ".claude" / "config.json"]:
+        if cfg_path.is_file():
+            try:
+                return json.loads(cfg_path.read_text()).get("os_name", "")
+            except Exception:
+                pass
+    onboard = DASHBOARD_DIR / "onboard-result.json"
+    if onboard.is_file():
+        try:
+            return json.loads(onboard.read_text()).get("os_name", "")
+        except Exception:
+            pass
+    return ""
+
+
+class DashboardHandler(SimpleHTTPRequestHandler):
+    project_root: Path = Path(".")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=str(DASHBOARD_DIR), **kwargs)
+
+    def end_headers(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        super().end_headers()
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.end_headers()
+
+    def _json_response(self, data, status=200):
+        body = json.dumps(data, indent=2).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self):
+        pr = self.__class__.project_root
+        if self.path == "/api/tasks":
+            tf = find_tasks_json(pr)
+            if tf:
+                try:
+                    self._json_response(json.loads(tf.read_text()))
+                except Exception as e:
+                    self._json_response({"error": str(e)}, 500)
+            else:
+                self._json_response({"objective": None, "tasks": []})
+        elif self.path == "/api/config":
+            self._json_response({
+                "os_name": get_os_name(pr),
+                "specialists": list_agents(pr),
+                "runtime": detect_runtime(pr),
+            })
+        elif self.path == "/api/status":
+            self._json_response({
+                "uptime_seconds": round(time.time() - START_TIME, 1),
+                "project_root": str(pr),
+                "runtime": detect_runtime(pr),
+                "started": datetime.fromtimestamp(START_TIME, tz=timezone.utc).isoformat(),
+            })
+        elif self.path == "/api/themes":
+            self._json_response(load_themes())
+        elif self.path.startswith("/api/theme"):
+            # /api/theme or /api/theme?name=Dark
+            from urllib.parse import urlparse, parse_qs as pqs
+            qs = pqs(urlparse(self.path).query)
+            name = qs.get("name", [None])[0]
+            self._json_response(get_theme(name))
+        else:
+            super().do_GET()
+
+    def do_POST(self):
+        if self.path == "/api/onboard":
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length)
+            try:
+                data = json.loads(body)
+            except Exception:
+                data = dict(parse_qs(body.decode()))
+            data["onboarded_at"] = datetime.now(tz=timezone.utc).isoformat()
+            out = DASHBOARD_DIR / "onboard-result.json"
+            out.write_text(json.dumps(data, indent=2))
+            self._json_response({"ok": True, "saved": str(out)})
+        else:
+            self.send_error(404)
+
+    def log_message(self, fmt, *args):
+        sys.stderr.write(f"\033[90m[dashboard] {fmt % args}\033[0m\n")
+
+
+def main():
+    ap = argparse.ArgumentParser(description="RAOS V2 Dashboard Server")
+    ap.add_argument("--port", type=int, default=9200)
+    ap.add_argument("--project", type=str, default=str(DASHBOARD_DIR.parent))
+    ap.add_argument("--no-browser", action="store_true")
+    args = ap.parse_args()
+
+    DashboardHandler.project_root = Path(args.project).resolve()
+    server = HTTPServer(("127.0.0.1", args.port), DashboardHandler)
+
+    def shutdown(sig, frame):
+        print("\n\033[36m[RAOS] Shutting down dashboard server...\033[0m")
+        server.shutdown()
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, shutdown)
+    signal.signal(signal.SIGTERM, shutdown)
+
+    url = f"http://127.0.0.1:{args.port}"
+    rt = detect_runtime(DashboardHandler.project_root)
+    print(f"\033[36m╔══════════════════════════════════════════╗\033[0m")
+    print(f"\033[36m║  RAOS V2 — Mission Control Dashboard     ║\033[0m")
+    print(f"\033[36m╠══════════════════════════════════════════╣\033[0m")
+    print(f"\033[36m║\033[0m  URL:     \033[1m{url:<30}\033[0m\033[36m║\033[0m")
+    print(f"\033[36m║\033[0m  Project: \033[90m{str(DashboardHandler.project_root)[:30]:<30}\033[0m\033[36m║\033[0m")
+    print(f"\033[36m║\033[0m  Runtime: {rt:<30}\033[36m║\033[0m")
+    print(f"\033[36m╚══════════════════════════════════════════╝\033[0m")
+
+    if not args.no_browser:
+        webbrowser.open(url)
+
+    server.serve_forever()
+
+
+if __name__ == "__main__":
+    main()
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START dashboard/themes/dark.json
+{
+  "name": "Dark",
+  "colors": {
+    "primary": "#bb86fc",
+    "secondary": "#03dac6",
+    "bg": "#121212",
+    "text": "#e1e1e1",
+    "accent": "#bb86fc",
+    "success": "#03dac6",
+    "warning": "#ffb74d",
+    "error": "#cf6679"
+  },
+  "fonts": {
+    "heading": "'JetBrains Mono', 'Fira Code', monospace",
+    "body": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+  },
+  "logo_text": "RAOS V3 — Dark Mode"
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START dashboard/themes/default.json
+{
+  "name": "Default",
+  "colors": {
+    "primary": "#00d4ff",
+    "secondary": "#a78bfa",
+    "bg": "#0a0a1a",
+    "text": "#e0e0e0",
+    "accent": "#00d4ff",
+    "success": "#00ff88",
+    "warning": "#ffd60a",
+    "error": "#ff4757"
+  },
+  "fonts": {
+    "heading": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    "body": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+  },
+  "logo_text": "RAOS V3"
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-EXEC-START harness/bin/costs.sh
 #!/usr/bin/env bash
 # RAOS V2 Scaffold — costs.sh
 # Roll up cost estimates from trace.ndjson into costs.json.
-# Heuristic only. GitHub Copilot CLI hooks don't expose token counts directly, so we
+# Heuristic only. Claude Code hooks don't expose token counts directly, so we
 # estimate from tool counts and durations. Users who care about precise $ numbers
 # can wire claude-code telemetry into trace.ndjson later.
 
@@ -2923,6 +6540,57 @@ EOF
 exit 0
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-EXEC-END
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-EXEC-START harness/bin/headless-copilot.sh
+#!/usr/bin/env bash
+# RAOS V2 Scaffold — headless-copilot.sh
+# Entry point for unattended scheduled runs via GitHub Copilot CLI.
+#
+# NOTE: GitHub Copilot CLI (`gh copilot`) does not have a headless/print mode
+# equivalent to `claude -p`. For truly unattended runs, use GitHub Actions
+# with the template at harness/schedule/github-actions.yaml.template.
+#
+# This script exists as a best-effort wrapper. It:
+#   1. Validates the run exists
+#   2. Marks it active
+#   3. Attempts to invoke gh copilot suggest (non-interactive fallback)
+#   4. Logs output
+#
+# For production headless runs, prefer GitHub Actions.
+#
+# Usage:
+#   headless-copilot.sh <project_root> <run_id>
+
+set -u
+
+PROJECT_ROOT="${1:-}"
+RUN_ID="${2:-}"
+
+if [ -z "$PROJECT_ROOT" ] || [ -z "$RUN_ID" ]; then
+  echo "headless-copilot.sh: usage: headless-copilot.sh <project_root> <run_id>" >&2
+  exit 1
+fi
+
+command -v gh >/dev/null 2>&1 || { echo "headless-copilot.sh: gh CLI not on PATH" >&2; exit 1; }
+gh extension list 2>/dev/null | grep -q copilot || { echo "headless-copilot.sh: gh copilot extension not installed. Run: gh extension install github/gh-copilot" >&2; exit 1; }
+
+cd "$PROJECT_ROOT" || exit 1
+
+RUNS_DIR="$PROJECT_ROOT/.agentic-os/runs"
+[ -d "$RUNS_DIR/$RUN_ID" ] || { echo "headless-copilot.sh: run $RUN_ID not found in $RUNS_DIR" >&2; exit 1; }
+
+echo "$RUN_ID" > "$RUNS_DIR/.active"
+LOG="$RUNS_DIR/$RUN_ID/headless.log"
+
+{
+  echo "=== headless run at $(date -u +"%Y-%m-%dT%H:%M:%SZ") ==="
+  echo "NOTE: gh copilot does not support headless mode natively."
+  echo "For production headless runs, use GitHub Actions (see harness/schedule/github-actions.yaml.template)."
+  echo "Attempting best-effort invocation..."
+  gh copilot suggest "/raos resume $RUN_ID" --shell 2>&1 || echo "gh copilot suggest exited with code $?"
+  echo "=== headless run ended ==="
+} >> "$LOG"
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-EXEC-END
+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-EXEC-START harness/bin/headless.sh
 #!/usr/bin/env bash
 # RAOS V2 Scaffold — headless.sh
@@ -2935,9 +6603,9 @@ exit 0
 # Behavior:
 #   - cd to the project
 #   - Mark <run_id> active
-#   - Invoke GitHub Copilot CLI in print mode with /raos resume <run_id>
+#   - Invoke Claude Code in print mode with /raos resume <run_id>
 #   - Append the session output to .agentic-os/runs/<run_id>/headless.log
-#   - Exit non-zero if GitHub Copilot CLI is not on PATH.
+#   - Exit non-zero if Claude Code is not on PATH.
 
 set -u
 
@@ -2961,7 +6629,7 @@ LOG="$RUNS_DIR/$RUN_ID/headless.log"
 
 {
   echo "=== headless run at $(date -u +"%Y-%m-%dT%H:%M:%SZ") ==="
-  gh copilot suggest -t shell "/raos resume $RUN_ID" 2>&1
+  claude -p "/raos resume $RUN_ID" 2>&1
   echo "=== headless run exit code: $? ==="
 } >> "$LOG"
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-EXEC-END
@@ -3210,6 +6878,16 @@ echo "Wrote $DB ($(wc -l < "$TRACE" | tr -d '[:space:]') spans). Try: sqlite3 $D
 exit 0
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-EXEC-END
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START harness/hooks/README.md
+# Hooks — Claude Code Only
+
+The shell scripts in this folder (`pre-tool-use.sh`, `post-tool-use.sh`, `stop.sh`, `user-prompt-submit.sh`) are **Claude Code hook scripts**. They rely on Claude Code's PreToolUse/PostToolUse/Stop/UserPromptSubmit hook system, which GitHub Copilot CLI does not support.
+
+If you are using GitHub Copilot CLI, these scripts are inert. See [HOOKS-DEGRADED.md](../../HOOKS-DEGRADED.md) for what's lost and the manual alternatives.
+
+If you are using Claude Code, register these hooks via `harness/settings.json.fragment` merged into `~/.claude/settings.json`.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-EXEC-START harness/hooks/post-tool-use.sh
 #!/usr/bin/env bash
 # RAOS V2 Scaffold — PostToolUse hook
@@ -3454,7 +7132,7 @@ exit 0
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START harness/schedule/github-actions.yaml.template
 # RAOS V2 Scaffold — GitHub Actions scheduled run template.
-# Cross-platform happy path. Works for any OS that has GitHub Copilot CLI or Copilot CLI.
+# Cross-platform happy path. Works for any OS that has Claude Code or Copilot CLI.
 #
 # Placeholders (replaced by the installer):
 #   <OS_NAME>    — your OS slug
@@ -3463,12 +7141,12 @@ exit 0
 #
 # Install:
 #   1. Copy this file to .github/workflows/raos-<OS_NAME>-<RUN_ID>.yml in your repo
-#   2. Add a repo secret ANTHROPIC_API_KEY (or your GitHub Copilot CLI auth of choice)
+#   2. Add a repo secret ANTHROPIC_API_KEY (or your Claude Code auth of choice)
 #   3. Commit and push
 #
 # What it does:
 #   - On the cron schedule, checks out the repo
-#   - Installs GitHub Copilot CLI
+#   - Installs Claude Code
 #   - Runs headless.sh against the pinned run_id
 #   - Commits any changes back (optional — comment out if you want manual review)
 
@@ -3491,12 +7169,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install GitHub Copilot CLI
+      - name: Install Claude Code
         run: |
           curl -fsSL https://claude.ai/install.sh | bash
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-      - name: Configure GitHub Copilot CLI
+      - name: Configure Claude Code
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
@@ -3591,7 +7269,7 @@ jobs:
     schtasks /Run /TN "RAOS-<OS_NAME>-<RUN_ID>"
 
   Note: headless.sh is a bash script. On Windows, invoke it via Git Bash or WSL.
-        Adjust the <Command> below if you installed GitHub Copilot CLI under WSL.
+        Adjust the <Command> below if you installed Claude Code under WSL.
 -->
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
@@ -3646,7 +7324,8 @@ jobs:
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START harness/settings.json.fragment
 {
-  "//": "RAOS V2 Scaffold — hook registration fragment. The installer merges this into ~/.github/settings.json. <OS_NAME> is the personalized OS slug; <SKILL_DIR> is the absolute path to the installed skill folder.",
+  "//": "RAOS V2 Scaffold — Claude Code hook registration ONLY. GitHub Copilot CLI does not use this file. See HOOKS-DEGRADED.md for details on what's lost and manual alternatives.",
+  "//2": "If you are on Claude Code, the installer merges this into ~/.claude/settings.json. <OS_NAME> is the personalized OS slug; <SKILL_DIR> is the absolute path to the installed skill folder.",
   "hooks": {
     "PreToolUse": [
       {
@@ -3800,10 +7479,247 @@ Total user interaction: one confirmation at the parsed objective, one review of 
 That is the 3-phase pattern working.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/background-tasks.md
+# Background Tasks
+
+## Problem
+
+Long-running tasks — test suites, builds, deployments, database migrations — block the agent. The agent sits idle waiting for output instead of doing useful work. A 3-minute test suite wastes 3 minutes of agent time.
+
+## Core Pattern: Fire-and-Forget with Notification
+
+```
+Agent                          Process Registry
+  │                                  │
+  ├── start("npm test") ───────────→ │ spawn process, register PID
+  │                                  │
+  ├── (continue other work) ←─────── │ returns session_id immediately
+  │                                  │
+  │   ... agent works on other tasks ...
+  │                                  │
+  ├── poll(session_id) ────────────→ │ check status + new output
+  │   ← {running, new_lines: [...]} │
+  │                                  │
+  │   ... more work ...              │
+  │                                  │
+  │   ← NOTIFICATION: process exited │ notify_on_complete fires
+  │     {exit_code: 0, output: ...}  │
+  │                                  │
+  └── log(session_id) ────────────→ │ get full output
+```
+
+## Process Registry
+
+Track all background processes in a registry:
+
+```python
+@dataclass
+class BackgroundProcess:
+    session_id: str
+    pid: int
+    command: str
+    start_time: float
+    exit_code: Optional[int]     # None while running
+    stdout_buffer: list[str]     # Rolling buffer of output lines
+    stderr_buffer: list[str]
+    notify_on_complete: bool
+    watch_patterns: list[str]    # Patterns to watch for in output
+    workdir: str
+    last_poll_line: int          # Track what's been read
+
+processes: dict[str, BackgroundProcess] = {}
+```
+
+## Actions
+
+### Start
+
+```python
+def start_background(
+    command: str,
+    workdir: str = ".",
+    notify_on_complete: bool = False,
+    watch_patterns: list[str] = None
+) -> str:
+    """Start a background process. Returns session_id immediately."""
+    session_id = str(uuid4())[:8]
+    proc = subprocess.Popen(
+        command, shell=True, cwd=workdir,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    processes[session_id] = BackgroundProcess(
+        session_id=session_id,
+        pid=proc.pid,
+        command=command,
+        start_time=time.time(),
+        exit_code=None,
+        stdout_buffer=[],
+        stderr_buffer=[],
+        notify_on_complete=notify_on_complete,
+        watch_patterns=watch_patterns or [],
+        workdir=workdir,
+        last_poll_line=0
+    )
+    # Start output reader thread
+    threading.Thread(target=_read_output, args=(session_id, proc)).start()
+    return session_id
+```
+
+### Poll
+
+Check status and get new output since last poll:
+
+```python
+def poll(session_id: str) -> dict:
+    """Check process status and get new output lines."""
+    proc = processes[session_id]
+    new_lines = proc.stdout_buffer[proc.last_poll_line:]
+    proc.last_poll_line = len(proc.stdout_buffer)
+    
+    return {
+        "status": "running" if proc.exit_code is None else "exited",
+        "exit_code": proc.exit_code,
+        "new_lines": new_lines,
+        "elapsed_seconds": time.time() - proc.start_time
+    }
+```
+
+### Wait
+
+Block until process completes (with timeout):
+
+```python
+def wait(session_id: str, timeout: int = 300) -> dict:
+    """Block until process exits or timeout."""
+    proc = processes[session_id]
+    deadline = time.time() + timeout
+    while proc.exit_code is None and time.time() < deadline:
+        time.sleep(0.5)
+    return poll(session_id)
+```
+
+### Log
+
+Get full output with pagination:
+
+```python
+def log(session_id: str, offset: int = 0, limit: int = 200) -> dict:
+    """Get full output log with pagination."""
+    proc = processes[session_id]
+    lines = proc.stdout_buffer[offset:offset + limit]
+    return {
+        "lines": lines,
+        "total_lines": len(proc.stdout_buffer),
+        "offset": offset,
+        "has_more": offset + limit < len(proc.stdout_buffer)
+    }
+```
+
+### Kill
+
+Terminate a runaway process:
+
+```python
+def kill(session_id: str) -> dict:
+    """Terminate a background process."""
+    proc = processes[session_id]
+    os.kill(proc.pid, signal.SIGTERM)
+    time.sleep(1)
+    if proc.exit_code is None:
+        os.kill(proc.pid, signal.SIGKILL)
+    return {"status": "killed", "pid": proc.pid}
+```
+
+## Watch Patterns
+
+Fire a notification when specific patterns appear in output — useful for catching errors early without waiting for the process to finish.
+
+```python
+watch_patterns = ["ERROR", "FAIL", "Traceback", "WARN"]
+
+def _check_patterns(session_id: str, line: str):
+    proc = processes[session_id]
+    for pattern in proc.watch_patterns:
+        if pattern in line:
+            notify_agent(
+                f"Watch pattern '{pattern}' matched in process {session_id}",
+                line=line
+            )
+```
+
+**Use watch patterns for mid-process signals**, not end-of-process markers. For "process finished," use `notify_on_complete`.
+
+## Example: Test Suite While Working
+
+```python
+# Agent kicks off tests in background
+test_session = terminal(
+    command="npm test -- --coverage",
+    background=True,
+    notify_on_complete=True,
+    watch_patterns=["FAIL", "ERROR"]
+)
+# Returns immediately with session_id
+
+# Agent continues working on other files
+patch("src/utils/validator.ts", old_string="...", new_string="...")
+write_file("src/utils/formatter.ts", content="...")
+
+# Mid-work check (optional)
+status = process(action="poll", session_id=test_session)
+if status["new_lines"]:
+    # Glance at progress
+    pass
+
+# Eventually, notification arrives:
+# "Process test_session exited with code 1"
+
+# Agent reads the failure
+result = process(action="log", session_id=test_session, limit=50)
+# Last 50 lines show which tests failed
+```
+
+## Parallel Execution Pattern
+
+Run multiple independent tasks simultaneously:
+
+```python
+# Start 3 parallel tasks
+sessions = {
+    "lint": terminal("npm run lint", background=True, notify_on_complete=True),
+    "test": terminal("npm test", background=True, notify_on_complete=True),
+    "build": terminal("npm run build", background=True, notify_on_complete=True),
+}
+
+# Wait for all to complete
+results = {}
+for name, sid in sessions.items():
+    results[name] = process(action="wait", session_id=sid, timeout=300)
+
+# Check results
+for name, result in results.items():
+    if result["exit_code"] != 0:
+        print(f"{name} failed!")
+        failure_log = process(action="log", session_id=sessions[name], limit=30)
+```
+
+## Rules for Agents
+
+1. **Background anything over 10 seconds.** Builds, test suites, installs, deployments.
+2. **Always set `notify_on_complete=True`.** Don't rely on polling loops.
+3. **Use watch patterns for errors.** Catch `FAIL`, `ERROR`, `Traceback` early.
+4. **Don't use shell backgrounding.** No `&`, `nohup`, or `disown`. Use the process manager.
+5. **Kill stuck processes.** If a process runs 3x longer than expected, kill it.
+6. **Read logs on failure, not success.** If exit_code=0, you rarely need the full log.
+7. **Parallelize independent work.** Lint + test + build can run simultaneously.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/budgets-and-gates.md
 # Budgets, gates, and the kill switch
 
 The Scaffold is conservative by default. It watches. It doesn't interrupt unless you ask it to.
+
+![The Hook Path](../assets/The%20Hook%20Path.png)
 
 ## Budgets: observability first
 
@@ -3897,6 +7813,1270 @@ The next tool call the PreToolUse hook sees will exit 2 with a clear message. No
 The Scaffold is a safety net. The team-lead and the specialists are still the pilots.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/command-registry.md
+# Command Registry — Single Source of Truth for All Commands
+
+> Define a command once. It works everywhere: CLI, Telegram, Discord, Slack.
+
+## The Problem
+
+Without a registry, commands are duplicated:
+- CLI handler in `cli.py`
+- Telegram handler in `telegram_bot.py`
+- Slash command in `discord_bot.py`
+- Each with different argument parsing, help text, error handling
+
+## Core Pattern
+
+One `CommandDef` defines everything. The registry auto-generates platform-specific dispatchers.
+
+```python
+@dataclass
+class CommandArg:
+    name: str
+    type: str              # "string", "int", "bool", "choice"
+    description: str
+    required: bool = True
+    default: Any = None
+    choices: list = None   # for type="choice"
+
+@dataclass
+class CommandDef:
+    name: str                    # "/status"
+    description: str             # "Show system status"
+    handler: Callable            # async function to execute
+    aliases: list[str] = None   # ["/s", "/stat"]
+    platforms: list[str] = None # None = all platforms
+    args: list[CommandArg] = None
+    hidden: bool = False         # hide from help/menus
+    admin_only: bool = False
+```
+
+## Registry
+
+```python
+class CommandRegistry:
+    def __init__(self):
+        self._commands: dict[str, CommandDef] = {}
+    
+    def register(self, cmd: CommandDef):
+        self._commands[cmd.name] = cmd
+        for alias in (cmd.aliases or []):
+            self._commands[alias] = cmd
+    
+    def get(self, name: str) -> CommandDef | None:
+        return self._commands.get(name)
+    
+    def list_for_platform(self, platform: str) -> list[CommandDef]:
+        seen = set()
+        result = []
+        for cmd in self._commands.values():
+            if cmd.name in seen or cmd.hidden:
+                continue
+            if cmd.platforms is None or platform in cmd.platforms:
+                result.append(cmd)
+                seen.add(cmd.name)
+        return sorted(result, key=lambda c: c.name)
+    
+    def dispatch(self, text: str, platform: str) -> tuple[CommandDef, dict] | None:
+        """Parse command + args from text, return (cmd, parsed_args)."""
+        parts = text.strip().split()
+        if not parts:
+            return None
+        cmd = self.get(parts[0])
+        if not cmd:
+            return None
+        if cmd.platforms and platform not in cmd.platforms:
+            return None
+        args = self._parse_args(cmd, parts[1:])
+        return cmd, args
+```
+
+## Defining Commands
+
+```python
+registry = CommandRegistry()
+
+# /status — works everywhere
+registry.register(CommandDef(
+    name="/status",
+    description="Show system status and uptime",
+    handler=handle_status,
+    aliases=["/s", "/stat"],
+))
+
+# /deploy — CLI and Slack only
+registry.register(CommandDef(
+    name="/deploy",
+    description="Deploy to environment",
+    handler=handle_deploy,
+    aliases=["/d"],
+    platforms=["cli", "slack"],
+    args=[
+        CommandArg("env", "choice", "Target environment", choices=["staging", "production"]),
+        CommandArg("force", "bool", "Skip confirmation", required=False, default=False),
+    ],
+))
+
+# /tasks — universal
+registry.register(CommandDef(
+    name="/tasks",
+    description="List current tasks and their status",
+    handler=handle_tasks,
+    aliases=["/t"],
+))
+```
+
+## Auto-Generated Outputs
+
+### CLI Help Text
+
+```python
+def generate_help(registry: CommandRegistry) -> str:
+    lines = ["Available commands:\n"]
+    for cmd in registry.list_for_platform("cli"):
+        aliases = f" ({', '.join(cmd.aliases)})" if cmd.aliases else ""
+        lines.append(f"  {cmd.name:<16}{cmd.description}{aliases}")
+        if cmd.args:
+            for arg in cmd.args:
+                req = "required" if arg.required else f"default: {arg.default}"
+                lines.append(f"    --{arg.name:<12} {arg.description} [{req}]")
+    return "\n".join(lines)
+```
+
+Output:
+```
+Available commands:
+
+  /status         Show system status and uptime (/s, /stat)
+  /deploy         Deploy to environment (/d)
+    --env          Target environment [required]
+    --force        Skip confirmation [default: False]
+  /tasks          List current tasks and their status (/t)
+```
+
+### CLI Autocomplete
+
+```python
+def generate_completions(registry: CommandRegistry) -> list[str]:
+    completions = []
+    for cmd in registry.list_for_platform("cli"):
+        completions.append(cmd.name)
+        completions.extend(cmd.aliases or [])
+    return completions
+
+# For bash/zsh completion scripts
+def generate_bash_completions(registry):
+    cmds = generate_completions(registry)
+    return f'complete -W "{" ".join(cmds)}" raos'
+```
+
+### Telegram Bot Menu
+
+```python
+async def set_telegram_commands(bot, registry: CommandRegistry):
+    """Register commands with Telegram's BotFather menu."""
+    commands = []
+    for cmd in registry.list_for_platform("telegram"):
+        # Telegram commands don't have leading /
+        name = cmd.name.lstrip("/")
+        commands.append(BotCommand(name, cmd.description[:256]))
+    await bot.set_my_commands(commands)
+
+# Result: Telegram shows command autocomplete in chat
+```
+
+### Discord Slash Commands
+
+```python
+async def register_discord_commands(client, registry: CommandRegistry):
+    for cmd in registry.list_for_platform("discord"):
+        options = []
+        for arg in (cmd.args or []):
+            opt_type = {"string": 3, "int": 4, "bool": 5, "choice": 3}[arg.type]
+            opt = {"name": arg.name, "description": arg.description,
+                   "type": opt_type, "required": arg.required}
+            if arg.choices:
+                opt["choices"] = [{"name": c, "value": c} for c in arg.choices]
+            options.append(opt)
+        await client.create_global_command(
+            name=cmd.name.lstrip("/"),
+            description=cmd.description,
+            options=options
+        )
+```
+
+### Slack Interactive Menus
+
+```python
+def generate_slack_blocks(registry: CommandRegistry) -> list:
+    """Generate Slack Block Kit command menu."""
+    actions = []
+    for cmd in registry.list_for_platform("slack"):
+        actions.append({
+            "type": "button",
+            "text": {"type": "plain_text", "text": cmd.name},
+            "action_id": f"cmd_{cmd.name.lstrip('/')}",
+            "value": cmd.name
+        })
+    return [{"type": "actions", "elements": actions}]
+```
+
+## Platform-Specific Response Rendering
+
+```python
+async def execute_and_respond(cmd, args, platform):
+    result = await cmd.handler(**args)
+    
+    if platform == "cli":
+        # Rich terminal output with colors
+        return format_cli(result)
+    elif platform == "telegram":
+        # Markdown with inline keyboards for actions
+        return format_telegram(result)
+    elif platform == "discord":
+        # Embed with fields
+        return format_discord_embed(result)
+    elif platform == "slack":
+        # Block Kit with sections
+        return format_slack_blocks(result)
+```
+
+## Plugin Extensibility
+
+Plugins register commands at startup:
+
+```python
+# plugins/monitoring.py
+def register(registry: CommandRegistry):
+    registry.register(CommandDef(
+        name="/health",
+        description="Run health checks on all services",
+        handler=health_check,
+        aliases=["/hc"],
+    ))
+    registry.register(CommandDef(
+        name="/metrics",
+        description="Show system metrics",
+        handler=show_metrics,
+    ))
+
+# main.py — load plugins
+for plugin in discover_plugins():
+    plugin.register(registry)
+```
+
+## Example: /status End-to-End
+
+Define once:
+```python
+registry.register(CommandDef(
+    name="/status",
+    description="Show system status",
+    handler=handle_status,
+))
+
+async def handle_status() -> dict:
+    return {
+        "uptime": get_uptime(),
+        "tasks": {"total": 12, "done": 8, "active": 3, "blocked": 1},
+        "agents": ["frontend", "backend", "devops"],
+        "health": "operational"
+    }
+```
+
+CLI sees:
+```
+⚡ System Status
+  Uptime:  2h 34m
+  Tasks:   12 total (8 done, 3 active, 1 blocked)
+  Agents:  frontend, backend, devops
+  Health:  ✅ Operational
+```
+
+Telegram sees:
+```
+🤖 *System Status*
+⏱ Uptime: 2h 34m
+📋 Tasks: 12 total
+  ✅ 8 done | 🔄 3 active | 🚫 1 blocked
+👥 Agents: frontend, backend, devops
+💚 Health: Operational
+
+[Refresh] [View Tasks] [Settings]  ← inline keyboard
+```
+
+Slack sees: Block Kit sections with action buttons.
+
+**One handler. Every platform. Zero duplication.**
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/context-window-management.md
+# Context Window Management
+
+## Problem
+
+Agents lose critical context in long conversations. The context window fills with tool output, intermediate reasoning, and stale information. By the time the agent needs to make a decision, the original task description and key decisions have been pushed out.
+
+## Core Pattern: HEAD | COMPRESSED MIDDLE | TAIL
+
+Structure the context window into three zones:
+
+```
+┌─────────────────────────────────┐
+│ HEAD (pinned, never compressed) │
+│ - System prompt                 │
+│ - Active Task block             │
+│ - Key constraints/rules         │
+├─────────────────────────────────┤
+│ COMPRESSED MIDDLE (summaries)   │
+│ - Turn summaries (not raw)      │
+│ - Decision log                  │
+│ - Error log                     │
+├─────────────────────────────────┤
+│ TAIL (last N turns, verbatim)   │
+│ - Recent tool calls + results   │
+│ - Current working state         │
+│ - Last 3-5 exchanges            │
+└─────────────────────────────────┘
+```
+
+## Active Task Block
+
+Always maintain this structure at the top of context. Update it every turn.
+
+```
+## Active Task
+**Objective:** Migrate user auth from JWT to session-based auth
+**Current Step:** Updating middleware to check session store
+**Blocked On:** Nothing
+**Completed:**
+- [x] Designed session schema
+- [x] Implemented session store (Redis)
+- [ ] Updated middleware
+- [ ] Updated login/logout endpoints
+- [ ] Updated tests
+**Key Decisions:**
+- Using Redis (not DB) for sessions — latency requirement <5ms
+- Session TTL: 24h with sliding expiration
+- Keeping JWT for API-to-API calls, sessions for browser only
+```
+
+## When to Compress
+
+Trigger compression when token usage exceeds 80% of the context window:
+
+```python
+def should_compress(current_tokens, max_tokens):
+    return current_tokens > max_tokens * 0.80
+
+# Model-specific thresholds
+THRESHOLDS = {
+    "claude-sonnet-4-20250514": int(200_000 * 0.80),   # 160K
+    "gpt-4o":          int(128_000 * 0.80),   # 102K
+    "claude-3-haiku":  int(200_000 * 0.80),   # 160K
+}
+```
+
+## What to Preserve vs Discard
+
+Priority order (highest first):
+
+| Priority | Category | Action |
+|----------|----------|--------|
+| 1 | Decisions made | Always preserve with rationale |
+| 2 | Errors encountered | Preserve — prevents loops |
+| 3 | Current file state | Preserve paths + key content |
+| 4 | Constraints/requirements | Keep in Active Task block |
+| 5 | Successful tool outputs | Compress to 1-line summary |
+| 6 | Raw file contents | Discard — re-read if needed |
+| 7 | Intermediate reasoning | Discard entirely |
+
+## Compression Implementation
+
+```python
+def compress_turns(turns: list[dict]) -> str:
+    """Compress a batch of turns into a summary block."""
+    # Group by activity
+    decisions = []
+    errors = []
+    files_modified = set()
+    
+    for turn in turns:
+        if "decided" in turn["content"].lower() or "choosing" in turn["content"].lower():
+            decisions.append(extract_decision(turn))
+        if turn.get("tool_result", {}).get("exit_code", 0) != 0:
+            errors.append(summarize_error(turn))
+        files_modified.update(extract_file_paths(turn))
+    
+    summary = f"""## Compressed: Turns {turns[0]['index']}-{turns[-1]['index']}
+**Actions taken:** {len(turns)} turns of work
+**Files modified:** {', '.join(files_modified)}
+**Decisions:** {'; '.join(decisions) if decisions else 'None'}
+**Errors hit:** {'; '.join(errors) if errors else 'None'}
+"""
+    return summary
+```
+
+## Before/After Example
+
+### Before Compression (raw turns eating 40K tokens):
+
+```
+Turn 12: [assistant] Let me read the auth middleware file...
+Turn 13: [tool_result] <2000 lines of middleware.js>
+Turn 14: [assistant] I see the issue. The JWT verification is on line 47...
+Turn 15: [tool_call] patch middleware.js ...
+Turn 16: [tool_result] File patched successfully
+Turn 17: [assistant] Now let me run the tests...
+Turn 18: [tool_result] FAIL: 3 tests failed - session not found
+Turn 19: [assistant] The Redis connection isn't initialized. Let me fix...
+Turn 20: [tool_call] patch redis-client.js ...
+Turn 21: [tool_result] File patched successfully
+Turn 22: [assistant] Running tests again...
+Turn 23: [tool_result] PASS: all 47 tests pass
+```
+
+### After Compression (~500 tokens):
+
+```
+## Compressed: Turns 12-23
+**Actions taken:** 12 turns of middleware migration work
+**Files modified:** middleware.js, redis-client.js
+**Decisions:** JWT check replaced with session lookup on line 47
+**Errors hit:** Redis connection not initialized before middleware runs — fixed by moving init to app startup
+**Outcome:** All 47 tests passing
+```
+
+## Integration Pattern
+
+```python
+class ContextManager:
+    def __init__(self, max_tokens: int):
+        self.max_tokens = max_tokens
+        self.head = []        # Pinned messages
+        self.compressed = []  # Summary blocks
+        self.tail = []        # Recent verbatim turns
+        self.active_task = {} # Current task state
+    
+    def add_turn(self, turn: dict):
+        self.tail.append(turn)
+        current = self.count_tokens()
+        if current > self.max_tokens * 0.80:
+            # Compress oldest half of tail
+            to_compress = self.tail[:len(self.tail)//2]
+            self.tail = self.tail[len(self.tail)//2:]
+            summary = compress_turns(to_compress)
+            self.compressed.append(summary)
+    
+    def build_context(self) -> list[dict]:
+        return self.head + self.compressed + self.tail
+    
+    def update_active_task(self, **kwargs):
+        self.active_task.update(kwargs)
+        # Active task is always in head[1] (after system prompt)
+        self.head[1] = {"role": "system", "content": format_active_task(self.active_task)}
+```
+
+## Rules for Agents
+
+1. **Never let the Active Task block go stale.** Update it after every meaningful action.
+2. **Re-read files instead of preserving raw content.** File reads are cheap; context space is not.
+3. **Log decisions explicitly.** "I chose X because Y" survives compression. Implicit reasoning does not.
+4. **Compress proactively.** Don't wait for the context to overflow — compress at 80%.
+5. **Errors are more valuable than successes.** A successful `npm install` can be discarded. A failed one with the error message must be preserved.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/cost-tracking.md
+# Cost Tracking
+
+## Problem
+
+Agent work costs real money. Without tracking, a single runaway objective can burn through $50 before anyone notices. Teams need visibility into what agents cost, per-session and per-objective, with hard budget limits.
+
+## Core Pattern: Per-Message Token Tracking + Cost Estimation
+
+Track token counts on every message, multiply by model-specific pricing, enforce budget limits.
+
+```
+Message → Count Tokens → Store in DB → Estimate Cost → Check Budget
+                                                          │
+                                              ┌───────────┴───────────┐
+                                              │ Under 80%: continue   │
+                                              │ At 80%: warn          │
+                                              │ At 100%: hard stop    │
+                                              └───────────────────────┘
+```
+
+## Token Tracking Schema
+
+```sql
+-- Extend the messages table (see session-persistence.md)
+ALTER TABLE messages ADD COLUMN tokens_input INTEGER DEFAULT 0;
+ALTER TABLE messages ADD COLUMN tokens_output INTEGER DEFAULT 0;
+ALTER TABLE messages ADD COLUMN tokens_cache_read INTEGER DEFAULT 0;
+ALTER TABLE messages ADD COLUMN tokens_cache_write INTEGER DEFAULT 0;
+ALTER TABLE messages ADD COLUMN model TEXT;
+
+-- Cost tracking table
+CREATE TABLE cost_ledger (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL REFERENCES sessions(id),
+    message_id INTEGER REFERENCES messages(id),
+    model TEXT NOT NULL,
+    tokens_input INTEGER DEFAULT 0,
+    tokens_output INTEGER DEFAULT 0,
+    tokens_cache_read INTEGER DEFAULT 0,
+    tokens_cache_write INTEGER DEFAULT 0,
+    cost_usd REAL NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- Budget tracking
+CREATE TABLE budgets (
+    id TEXT PRIMARY KEY,           -- objective_id or session_id
+    budget_type TEXT NOT NULL,     -- 'session' or 'objective'
+    max_cost_usd REAL NOT NULL,
+    current_cost_usd REAL DEFAULT 0.0,
+    status TEXT DEFAULT 'active'   -- active, warning, exceeded
+);
+
+CREATE INDEX idx_cost_session ON cost_ledger(session_id);
+CREATE INDEX idx_cost_model ON cost_ledger(model);
+```
+
+## Model Pricing Tables
+
+```python
+# Prices per 1M tokens (USD) — update as pricing changes
+MODEL_PRICING = {
+    "claude-sonnet-4-20250514": {
+        "input": 3.00,
+        "output": 15.00,
+        "cache_read": 0.30,
+        "cache_write": 3.75,
+    },
+    "claude-3-haiku": {
+        "input": 0.25,
+        "output": 1.25,
+        "cache_read": 0.03,
+        "cache_write": 0.30,
+    },
+    "gpt-4o": {
+        "input": 2.50,
+        "output": 10.00,
+        "cache_read": 1.25,
+        "cache_write": 2.50,
+    },
+    "gpt-4o-mini": {
+        "input": 0.15,
+        "output": 0.60,
+        "cache_read": 0.075,
+        "cache_write": 0.15,
+    },
+}
+
+def estimate_cost(model: str, tokens: dict) -> float:
+    """Calculate cost in USD for a single message."""
+    pricing = MODEL_PRICING.get(model, MODEL_PRICING["claude-sonnet-4-20250514"])
+    cost = (
+        tokens.get("input", 0) * pricing["input"] / 1_000_000
+        + tokens.get("output", 0) * pricing["output"] / 1_000_000
+        + tokens.get("cache_read", 0) * pricing["cache_read"] / 1_000_000
+        + tokens.get("cache_write", 0) * pricing["cache_write"] / 1_000_000
+    )
+    return round(cost, 6)
+```
+
+## Budget Enforcement
+
+```python
+class BudgetManager:
+    def __init__(self, db):
+        self.db = db
+    
+    def check_budget(self, budget_id: str) -> dict:
+        """Check budget status before making an API call."""
+        budget = self.db.execute(
+            "SELECT max_cost_usd, current_cost_usd, status FROM budgets WHERE id = ?",
+            (budget_id,)
+        ).fetchone()
+        
+        if not budget:
+            return {"allowed": True, "status": "no_budget"}
+        
+        ratio = budget["current_cost_usd"] / budget["max_cost_usd"]
+        
+        if ratio >= 1.0:
+            return {
+                "allowed": False,
+                "status": "exceeded",
+                "current": budget["current_cost_usd"],
+                "max": budget["max_cost_usd"]
+            }
+        elif ratio >= 0.8:
+            return {
+                "allowed": True,
+                "status": "warning",
+                "current": budget["current_cost_usd"],
+                "max": budget["max_cost_usd"],
+                "remaining": budget["max_cost_usd"] - budget["current_cost_usd"]
+            }
+        else:
+            return {"allowed": True, "status": "ok"}
+    
+    def record_cost(self, budget_id: str, session_id: str, model: str, tokens: dict):
+        """Record a cost entry and update budget."""
+        cost = estimate_cost(model, tokens)
+        
+        self.db.execute(
+            "INSERT INTO cost_ledger (session_id, model, tokens_input, tokens_output, "
+            "tokens_cache_read, tokens_cache_write, cost_usd) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (session_id, model, tokens.get("input", 0), tokens.get("output", 0),
+             tokens.get("cache_read", 0), tokens.get("cache_write", 0), cost)
+        )
+        
+        self.db.execute(
+            "UPDATE budgets SET current_cost_usd = current_cost_usd + ? WHERE id = ?",
+            (cost, budget_id)
+        )
+        
+        # Check if we crossed a threshold
+        status = self.check_budget(budget_id)
+        if status["status"] == "warning":
+            notify_agent(f"Budget warning: ${status['current']:.2f} / ${status['max']:.2f}")
+        elif status["status"] == "exceeded":
+            notify_agent(f"BUDGET EXCEEDED: ${status['current']:.2f} / ${status['max']:.2f}")
+            raise BudgetExceededError(budget_id)
+```
+
+## Reporting
+
+### Per-Session Cost
+
+```python
+def session_cost_report(session_id: str) -> dict:
+    result = db.execute("""
+        SELECT 
+            model,
+            COUNT(*) as messages,
+            SUM(tokens_input) as total_input,
+            SUM(tokens_output) as total_output,
+            SUM(cost_usd) as total_cost
+        FROM cost_ledger
+        WHERE session_id = ?
+        GROUP BY model
+    """, (session_id,)).fetchall()
+    
+    return {
+        "session_id": session_id,
+        "by_model": [dict(r) for r in result],
+        "total_cost": sum(r["total_cost"] for r in result)
+    }
+```
+
+### Per-Objective Cost (across multiple agents)
+
+```python
+def objective_cost_report(objective_id: str) -> dict:
+    """Cost across all sessions tied to an objective."""
+    result = db.execute("""
+        SELECT 
+            s.title as session_title,
+            cl.model,
+            COUNT(*) as messages,
+            SUM(cl.cost_usd) as cost
+        FROM cost_ledger cl
+        JOIN sessions s ON s.id = cl.session_id
+        WHERE s.objective = ? OR s.id IN (
+            SELECT session_id FROM objective_sessions WHERE objective_id = ?
+        )
+        GROUP BY s.id, cl.model
+        ORDER BY cost DESC
+    """, (objective_id, objective_id)).fetchall()
+    
+    total = sum(r["cost"] for r in result)
+    return {
+        "objective_id": objective_id,
+        "breakdown": [dict(r) for r in result],
+        "total_cost": total,
+        "total_messages": sum(r["messages"] for r in result)
+    }
+```
+
+## Example Output
+
+```
+=== Objective Cost Report ===
+Objective: "Implement user authentication system"
+Total Cost: $2.47 across 14 agent turns (3 agents)
+
+  Architect Agent (session abc123):
+    claude-sonnet-4-20250514: 4 turns, 12K input, 3K output = $0.08
+  
+  Builder Agent 1 (session def456):
+    claude-sonnet-4-20250514: 6 turns, 89K input, 18K output = $0.54
+  
+  Builder Agent 2 (session ghi789):
+    claude-sonnet-4-20250514: 4 turns, 62K input, 41K output = $0.80
+  
+  Test Agent (session jkl012):
+    claude-sonnet-4-20250514: 8 turns, 45K input, 22K output = $1.05
+
+Budget: $2.47 / $5.00 (49.4%)
+```
+
+## Integration with Agent Loop
+
+```python
+def agent_turn(message: str, budget_id: str, session_id: str):
+    """Wrap each agent turn with cost tracking."""
+    # Pre-check
+    budget_status = budget_manager.check_budget(budget_id)
+    if not budget_status["allowed"]:
+        return {"error": "Budget exceeded", "details": budget_status}
+    
+    # Make API call
+    response = call_model(message)
+    
+    # Record cost
+    budget_manager.record_cost(
+        budget_id=budget_id,
+        session_id=session_id,
+        model=response.model,
+        tokens={
+            "input": response.usage.input_tokens,
+            "output": response.usage.output_tokens,
+            "cache_read": response.usage.cache_read_tokens,
+            "cache_write": response.usage.cache_creation_tokens,
+        }
+    )
+    
+    return response
+```
+
+## Rules for Agents
+
+1. **Track every API call.** No exceptions. Even retries and failed calls cost money.
+2. **Check budget before each turn.** Don't make the call if you're over budget.
+3. **Warn at 80%.** Give the agent a chance to wrap up efficiently.
+4. **Hard stop at 100%.** Save state, summarize progress, exit cleanly.
+5. **Use cheaper models for simple tasks.** Haiku for file reads, Sonnet for reasoning.
+6. **Cache aggressively.** Cache reads cost 10x less than fresh input tokens.
+7. **Report costs in summaries.** Every delegation result should include cost.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/dashboard-themes.md
+# Dashboard Theme Engine
+
+> Runtime-switchable themes for the RAOS Mission Control dashboard.
+
+## Overview
+
+The dashboard supports multiple visual themes loaded from JSON files. Themes are stored in `dashboard/themes/`, served via API, and applied client-side through CSS custom properties. Theme selection persists in `localStorage`.
+
+## Theme File Format
+
+```json
+{
+  "name": "Dark",
+  "colors": {
+    "primary": "#bb86fc",
+    "secondary": "#03dac6",
+    "bg": "#121212",
+    "text": "#e1e1e1",
+    "accent": "#bb86fc",
+    "success": "#03dac6",
+    "warning": "#ffb74d",
+    "error": "#cf6679"
+  },
+  "fonts": {
+    "heading": "'JetBrains Mono', monospace",
+    "body": "-apple-system, BlinkMacSystemFont, sans-serif"
+  },
+  "logo_text": "RAOS V3 — Dark Mode"
+}
+```
+
+## API Endpoints
+
+| Endpoint              | Method | Description                    |
+|-----------------------|--------|--------------------------------|
+| `/api/themes`         | GET    | List all available themes      |
+| `/api/theme`          | GET    | Get default (first) theme      |
+| `/api/theme?name=Dark`| GET    | Get theme by name              |
+
+## Adding a Custom Theme
+
+1. Create `dashboard/themes/mytheme.json` with the format above
+2. Restart the dashboard server (or it picks up on next `/api/themes` call)
+3. Select from the dropdown in the dashboard header
+
+## Backward Compatibility
+
+If `dashboard/themes/` is empty or missing, the server returns a hardcoded default theme matching the original V2 dark color scheme. No theme files required for basic operation.
+
+## File Structure
+
+```
+dashboard/
+  server.py          # serves /api/themes and /api/theme endpoints
+  index.html          # loads theme on init, has theme switcher dropdown
+  themes/
+    default.json      # default cyan/dark theme
+    dark.json         # material dark purple theme
+```
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/delegation-contracts.md
+# Delegation Contracts
+
+## Problem
+
+Complex tasks require decomposition. A single agent trying to do everything loses focus, fills its context, and makes compounding errors. Delegation lets a parent agent break work into isolated subtasks.
+
+## Core Pattern: Parent → Contract → Child → Summary
+
+```
+Parent Agent
+  ├── defines contract
+  ├── spawns child with fresh context
+  ├── child executes in isolation
+  ├── child returns structured summary
+  └── parent integrates result (never sees child's reasoning)
+```
+
+## The Delegation Contract
+
+Every delegation is defined by a contract object:
+
+```python
+contract = {
+    "task": "Write unit tests for the UserService class",
+    "context": {
+        "file_paths": ["src/services/user-service.ts"],
+        "test_framework": "vitest",
+        "coverage_target": "all public methods",
+        "existing_patterns": "see src/services/__tests__/auth-service.test.ts"
+    },
+    "allowed_tools": [
+        "read_file",
+        "write_file",
+        "patch",
+        "search_files",
+        "terminal"  # for running tests
+    ],
+    "blocked_tools": [
+        "dispatch_agent",   # no further delegation
+        "memory_write",     # no modifying shared memory
+        "message_user"      # no direct user communication
+    ],
+    "max_iterations": 25,
+    "max_cost": 0.50,       # USD budget limit
+    "expected_output": {
+        "format": "summary",
+        "fields": ["files_created", "files_modified", "test_count", "all_passing", "issues"]
+    },
+    "timeout_seconds": 300
+}
+```
+
+## Isolation Model
+
+Children operate in complete isolation:
+
+| Property | Parent | Child |
+|----------|--------|-------|
+| Context | Full conversation history | Only contract + task context |
+| Session | Main session | Fresh ephemeral session |
+| Tools | All tools | Only allowed_tools |
+| Memory | Read + write | Read only (or none) |
+| Delegation | Can delegate | Cannot delegate (depth=0) |
+| User comms | Can message user | Cannot message user |
+| State DB | Shared | Own temporary state |
+
+### Why Isolation Matters
+
+- **Fresh context:** Child gets 100% of its context window for the task.
+- **No contamination:** Child's failed attempts don't pollute parent's reasoning.
+- **Predictable cost:** Budget cap prevents runaway spending.
+- **Clean interface:** Parent integrates a summary, not 50 turns of trial and error.
+
+## Depth Limits
+
+```
+Orchestrator (depth=2)
+  └── Architect (depth=1)
+        ├── Builder A (depth=0) — cannot delegate
+        ├── Builder B (depth=0) — cannot delegate
+        └── Builder C (depth=0) — cannot delegate
+```
+
+**Hard rule:** `max_depth = 2`. Children at depth 0 cannot call `dispatch_agent`. This prevents:
+- Infinite delegation chains
+- Cost explosion from recursive spawning
+- Debugging nightmares
+
+## Parent-Child Communication
+
+The parent NEVER sees:
+- The child's intermediate reasoning
+- Tool call details or raw outputs
+- Failed attempts or retries
+
+The parent ONLY sees the structured summary:
+
+```json
+{
+    "status": "completed",
+    "files_created": ["src/services/__tests__/user-service.test.ts"],
+    "files_modified": [],
+    "test_count": 12,
+    "all_passing": true,
+    "issues": [],
+    "tokens_used": {"input": 45000, "output": 8200},
+    "cost_usd": 0.31,
+    "iterations": 8
+}
+```
+
+## Failure Modes and Handling
+
+```python
+def handle_child_result(result: dict) -> str:
+    match result["status"]:
+        case "completed":
+            return integrate_result(result)
+        
+        case "timeout":
+            # Child exceeded timeout_seconds
+            # Partial work may exist on disk
+            return "Child timed out. Check partial output, retry with simpler scope."
+        
+        case "budget_exceeded":
+            # Hit max_cost before finishing
+            return "Budget exceeded. Review partial work, consider breaking task further."
+        
+        case "max_iterations":
+            # Likely stuck in a loop
+            return "Child hit iteration limit. Task may be too complex or ambiguous."
+        
+        case "error":
+            # Unrecoverable error
+            return f"Child failed: {result['error']}. Retry or reassign."
+```
+
+## Example: Architect Delegates to 3 Parallel Builders
+
+```python
+# Parent: Architect agent planning a feature
+
+# Step 1: Plan the decomposition
+subtasks = [
+    {
+        "task": "Implement database migration for orders table",
+        "context": {"schema_design": "...", "db": "postgresql"},
+        "allowed_tools": ["read_file", "write_file", "terminal"],
+        "max_iterations": 15,
+        "max_cost": 0.30
+    },
+    {
+        "task": "Implement OrderService with CRUD operations",
+        "context": {"interface": "...", "depends_on": "orders table migration"},
+        "allowed_tools": ["read_file", "write_file", "patch", "search_files", "terminal"],
+        "max_iterations": 20,
+        "max_cost": 0.40
+    },
+    {
+        "task": "Implement REST endpoints for /api/orders",
+        "context": {"service_interface": "...", "auth": "session-based", "framework": "express"},
+        "allowed_tools": ["read_file", "write_file", "patch", "search_files", "terminal"],
+        "max_iterations": 20,
+        "max_cost": 0.40
+    }
+]
+
+# Step 2: Dispatch (can be parallel if no dependencies)
+results = []
+# Task 1 must complete before 2 and 3 (they depend on the schema)
+result_1 = dispatch_agent(subtasks[0])
+assert result_1["status"] == "completed"
+
+# Tasks 2 and 3 can run in parallel
+result_2, result_3 = dispatch_parallel([subtasks[1], subtasks[2]])
+
+# Step 3: Integrate
+for r in [result_1, result_2, result_3]:
+    if r["status"] != "completed":
+        handle_failure(r)
+
+# Step 4: Run integration tests (parent does this, not children)
+run_integration_tests()
+```
+
+## Contract Design Rules
+
+1. **Be specific about scope.** "Write tests" is bad. "Write unit tests for UserService covering all public methods" is good.
+2. **Provide file paths.** Don't make the child search for things the parent already knows.
+3. **Set realistic iteration limits.** Simple tasks: 10-15. Complex tasks: 20-30. Never >50.
+4. **Include existing patterns.** Point to a reference file the child can follow.
+5. **Define success criteria.** "all_passing: true" is a verifiable exit condition.
+6. **Budget conservatively.** If you think it costs $0.30, set limit at $0.50.
+
+## Anti-Patterns
+
+- **Over-delegation:** Don't delegate a 2-minute task. The contract overhead isn't worth it.
+- **Vague contracts:** "Make it work" leads to confused children and wasted budget.
+- **No allowed_tools list:** Always be explicit. Default-open is dangerous.
+- **Reading child reasoning:** If you're parsing child intermediate output, your contract is wrong.
+- **Deep chains:** If you need depth > 2, redesign the decomposition to be flatter.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/mcp-integration.md
+# MCP Integration — Model Context Protocol
+
+> Connect external tool servers to extend agent capabilities without modifying core code.
+
+## What is MCP?
+
+MCP (Model Context Protocol) is a standard for connecting AI agents to external tool servers. Instead of hardcoding tool implementations, agents discover and call tools served by separate processes over stdio or HTTP.
+
+**Key benefits:**
+- Tools are language-agnostic (server in Python, agent in JS — doesn't matter)
+- Hot-swappable: add/remove tool servers without restarting the agent
+- Isolation: tool crashes don't crash the agent
+- Reusable: one MCP server serves multiple agents
+
+## Architecture
+
+```
+Agent Core
+  ├── Built-in tools (read_file, terminal, etc.)
+  └── MCP Client
+        ├── Database Server (stdio) → query, insert, schema tools
+        ├── Jira Server (stdio)     → create_issue, search, transition tools
+        └── Custom Server (HTTP)    → domain-specific tools
+```
+
+## Configuration Format
+
+MCP servers are configured in the project config:
+
+```json
+{
+  "mcpServers": {
+    "database": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres"],
+      "env": {
+        "DATABASE_URL": "postgresql://user:pass@localhost:5432/mydb"
+      }
+    },
+    "jira": {
+      "command": "python",
+      "args": ["-m", "mcp_jira_server"],
+      "env": {
+        "JIRA_URL": "https://myorg.atlassian.net",
+        "JIRA_TOKEN": "${JIRA_API_TOKEN}"
+      }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/allowed/path"]
+    }
+  }
+}
+```
+
+### Config Fields
+
+| Field     | Type     | Description                                    |
+|-----------|----------|------------------------------------------------|
+| `command` | string   | Executable to launch the server                |
+| `args`    | list     | Command-line arguments                         |
+| `env`     | object   | Environment variables (supports `${VAR}` refs) |
+| `timeout` | int      | Startup timeout in seconds (default: 30)       |
+| `enabled` | bool     | Toggle server on/off (default: true)           |
+
+## Tool Discovery
+
+On startup, the MCP client connects to each server and lists available tools:
+
+```python
+async def discover_tools(server_name: str, config: dict) -> list[Tool]:
+    """Connect to MCP server, return available tools."""
+    client = MCPClient()
+    await client.connect(config["command"], config["args"], config.get("env", {}))
+    
+    tools = await client.list_tools()
+    # Each tool has: name, description, input_schema (JSON Schema)
+    
+    # Namespace tools to avoid collisions
+    for tool in tools:
+        tool.namespaced_name = f"{server_name}.{tool.name}"
+    
+    return tools
+```
+
+## Mapping Tools to Agents
+
+Once discovered, MCP tools are added to the agent's toolset:
+
+```python
+# In agent configuration
+allowed_tools:
+  - read_file
+  - write_file
+  - terminal
+  - database.query          # MCP tool: run SQL queries
+  - database.schema         # MCP tool: get table schemas
+  - jira.create_issue       # MCP tool: create Jira tickets
+  - jira.search             # MCP tool: search issues
+```
+
+## Authentication Patterns
+
+### API Keys via Environment
+
+```json
+{
+  "env": {
+    "API_KEY": "${MY_SERVICE_API_KEY}"
+  }
+}
+```
+
+The `${VAR}` syntax references the host machine's environment variables. Never hardcode secrets in config.
+
+### OAuth Tokens
+
+For OAuth-based services, use a token refresh wrapper:
+
+```json
+{
+  "command": "python",
+  "args": ["-m", "mcp_oauth_wrapper", "--service", "github"],
+  "env": {
+    "OAUTH_CLIENT_ID": "${GH_CLIENT_ID}",
+    "OAUTH_CLIENT_SECRET": "${GH_CLIENT_SECRET}",
+    "OAUTH_TOKEN_FILE": ".tokens/github.json"
+  }
+}
+```
+
+## Example: Database MCP Server
+
+```json
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres"],
+      "env": {
+        "DATABASE_URL": "${DATABASE_URL}"
+      }
+    }
+  }
+}
+```
+
+**Discovered tools:**
+- `postgres.query` — Execute read-only SQL
+- `postgres.schema` — List tables and columns
+- `postgres.explain` — Get query execution plan
+
+**Agent usage:**
+```
+Agent: I need to check the user table structure.
+→ calls postgres.schema(table="users")
+← Returns column definitions, types, constraints
+```
+
+## Example: Jira MCP Server
+
+```json
+{
+  "mcpServers": {
+    "jira": {
+      "command": "uvx",
+      "args": ["mcp-server-jira"],
+      "env": {
+        "JIRA_URL": "${JIRA_URL}",
+        "JIRA_EMAIL": "${JIRA_EMAIL}",
+        "JIRA_TOKEN": "${JIRA_API_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+**Discovered tools:**
+- `jira.search` — JQL search
+- `jira.create_issue` — Create ticket
+- `jira.transition` — Move issue status
+- `jira.add_comment` — Comment on issue
+
+## Failure Handling
+
+### Server Won't Start
+
+```python
+try:
+    await client.connect(command, args, env, timeout=30)
+except MCPStartupError:
+    logger.warning(f"MCP server '{name}' failed to start — skipping")
+    # Agent continues without these tools
+    # Tools from this server return "unavailable" if called
+```
+
+### Tool Timeout
+
+```python
+try:
+    result = await asyncio.wait_for(client.call_tool(name, args), timeout=60)
+except asyncio.TimeoutError:
+    return ToolResult(error=f"Tool {name} timed out after 60s")
+```
+
+### Retry Logic
+
+```python
+MAX_RETRIES = 3
+RETRY_DELAY = [1, 5, 15]  # exponential-ish backoff
+
+async def call_with_retry(client, tool_name, args):
+    for attempt in range(MAX_RETRIES):
+        try:
+            return await client.call_tool(tool_name, args)
+        except MCPConnectionError:
+            if attempt < MAX_RETRIES - 1:
+                await asyncio.sleep(RETRY_DELAY[attempt])
+                await client.reconnect()
+            else:
+                raise
+```
+
+### Server Crash Recovery
+
+```python
+async def ensure_connected(server_name):
+    """Reconnect to MCP server if connection dropped."""
+    client = connections[server_name]
+    if not client.is_connected():
+        logger.info(f"Reconnecting to MCP server: {server_name}")
+        config = mcp_config[server_name]
+        await client.connect(config["command"], config["args"], config.get("env", {}))
+```
+
+## Security Considerations
+
+1. **Least privilege**: Only give agents access to the MCP tools they need
+2. **Read-only by default**: Prefer read-only database connections
+3. **Env var secrets**: Never commit tokens to config files
+4. **Network isolation**: Run MCP servers in containers if they access external services
+5. **Audit logging**: Log all MCP tool calls for traceability
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/objective-oriented-arch.md
 # Objective-Oriented Architecture
 
@@ -3930,7 +9110,7 @@ Why: user mental model stays simple. "I set the goal. The team runs it." If the 
 
 ### 2. The Team Lead auto-approves within the autonomous bucket
 
-The user defines the autonomous and guidance buckets once, in CLAUDE.md, during bootstrap. After that, cli-lead makes decisions without asking, as long as they're in the autonomous bucket.
+The user defines the autonomous and guidance buckets once, in the project instructions file (In Claude Code: `CLAUDE.md` / In GitHub Copilot CLI: `instructions.md`), during bootstrap. After that, cli-lead makes decisions without asking, as long as they're in the autonomous bucket.
 
 - Reading files? Autonomous.
 - Running tests? Autonomous.
@@ -3994,7 +9174,7 @@ Speed is a feature. Objective-oriented execution only pays off if it's dramatica
 
 When a task has no dependency on another, dispatch both at the same time.
 
-In GitHub Copilot CLI: multiple Agent tool calls in a single message run concurrently. Use that. The Team Lead should favor breadth over depth whenever the work is parallelizable.
+In Claude Code (and similarly in GitHub Copilot CLI): multiple Agent tool calls in a single message run concurrently. Use that. The Team Lead should favor breadth over depth whenever the work is parallelizable.
 
 Examples of work that is usually parallelizable:
 - Research across different areas of a codebase (one Explore agent per area).
@@ -4050,7 +9230,7 @@ Parallel dispatch burns tokens faster. Usually worth it. user attention is more 
 - Not dispatch specialists whose output is redundant ("get three opinions" is rarely worth 3x the cost).
 - Reuse Explore output from Research in Synthesis rather than re-reading.
 
-If the user is on a tight budget (noted in CLAUDE.md), the Team Lead can downgrade to sequential dispatch. That's a user preference, not a default.
+If the user is on a tight budget (noted in the project instructions — In Claude Code: `CLAUDE.md` / In GitHub Copilot CLI: `instructions.md`), the Team Lead can downgrade to sequential dispatch. That's a user preference, not a default.
 
 ---
 
@@ -4061,6 +9241,485 @@ A Team Lead that "dispatches" three agents one after the other in separate messa
 If you catch yourself doing it sequentially when the tasks are independent, stop. Batch them.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/platform-gateway.md
+# Platform Gateway — Multi-Platform Agent Architecture
+
+> One agent core, many platform adapters. Same logic serves CLI, Telegram, Discord, Slack, and more.
+
+## Core Pattern
+
+```
+                    ┌─────────────────┐
+  CLI ──────────────┤                 │
+  Telegram ─────────┤  Platform       │      ┌──────────────┐
+  Discord ──────────┤  Gateway        ├─────►│  Agent Core   │
+  Slack ────────────┤  (normalize +   │      │  (unchanged)  │
+  WhatsApp ─────────┤   route)        │      └──────────────┘
+  Teams ────────────┤                 │
+                    └─────────────────┘
+```
+
+The agent core never knows which platform a message came from. The gateway normalizes everything into a unified `Message` object.
+
+## Unified Message Object
+
+```python
+@dataclass
+class Message:
+    id: str                          # unique message ID
+    session_id: str                  # platform:chat_id:thread_id
+    platform: str                    # "cli", "telegram", "discord", etc.
+    sender: str                      # username or user ID
+    text: str                        # normalized text content
+    media: list[MediaAttachment]     # images, files, voice
+    reply_to: str | None             # parent message ID
+    timestamp: datetime
+    raw: dict                        # original platform payload
+
+@dataclass
+class MediaAttachment:
+    type: str        # "image", "file", "voice", "video"
+    url: str         # download URL or local path
+    filename: str
+    mime_type: str
+    size_bytes: int
+```
+
+## Adapter Interface
+
+Every platform adapter implements this interface:
+
+```python
+class PlatformAdapter(Protocol):
+    platform_name: str
+    
+    async def start(self) -> None:
+        """Start listening for messages."""
+    
+    async def stop(self) -> None:
+        """Gracefully disconnect."""
+    
+    async def send(self, session_id: str, response: AgentResponse) -> None:
+        """Send agent response back to the platform."""
+    
+    async def on_message(self, callback: Callable[[Message], Awaitable]) -> None:
+        """Register handler for incoming messages."""
+    
+    def format_response(self, response: AgentResponse) -> Any:
+        """Convert agent response to platform-native format."""
+```
+
+## Session Routing
+
+Sessions are addressed as `platform:chat_id:thread_id`:
+
+```
+cli:local:default              # CLI session
+telegram:123456789:0           # Telegram DM
+telegram:-100987654:42         # Telegram group, thread 42
+discord:guild123:channel456    # Discord channel
+slack:T01ABC:C02DEF:ts123      # Slack thread
+whatsapp:+1234567890:0         # WhatsApp chat
+teams:tenant:channel:thread    # Teams thread
+```
+
+```python
+def parse_session(session_id: str) -> tuple[str, str, str]:
+    parts = session_id.split(":", 2)
+    platform = parts[0]
+    chat_id = parts[1] if len(parts) > 1 else "default"
+    thread_id = parts[2] if len(parts) > 2 else "0"
+    return platform, chat_id, thread_id
+
+def route_response(session_id: str, response: AgentResponse):
+    platform, _, _ = parse_session(session_id)
+    adapter = adapters[platform]
+    adapter.send(session_id, response)
+```
+
+## Platform Adapters
+
+### CLI Adapter
+
+```python
+class CLIAdapter:
+    platform_name = "cli"
+    
+    async def start(self):
+        # Read from stdin in a loop
+        while True:
+            line = await asyncio.get_event_loop().run_in_executor(None, input, "> ")
+            msg = Message(
+                id=str(uuid4()),
+                session_id="cli:local:default",
+                platform="cli",
+                sender="user",
+                text=line,
+                media=[], reply_to=None,
+                timestamp=datetime.now(), raw={}
+            )
+            await self._callback(msg)
+    
+    async def send(self, session_id, response):
+        print(response.text)
+        for media in response.media:
+            print(f"[{media.type}: {media.filename}]")
+```
+
+### Telegram Adapter
+
+```python
+class TelegramAdapter:
+    platform_name = "telegram"
+    
+    def __init__(self, token: str):
+        self.bot = TelegramBot(token)
+    
+    async def start(self):
+        @self.bot.on_message()
+        async def handle(update):
+            msg = Message(
+                id=str(update.message_id),
+                session_id=f"telegram:{update.chat.id}:{update.message_thread_id or 0}",
+                platform="telegram",
+                sender=update.from_user.username,
+                text=update.text or "",
+                media=self._extract_media(update),
+                reply_to=str(update.reply_to_message.message_id) if update.reply_to_message else None,
+                timestamp=update.date,
+                raw=update.to_dict()
+            )
+            await self._callback(msg)
+        await self.bot.start_polling()
+    
+    async def send(self, session_id, response):
+        _, chat_id, thread_id = parse_session(session_id)
+        await self.bot.send_message(
+            chat_id=int(chat_id),
+            text=response.text,
+            message_thread_id=int(thread_id) if thread_id != "0" else None
+        )
+```
+
+## Message Format Normalization
+
+Each platform has quirks. The gateway normalizes them:
+
+| Platform  | Mentions        | Normalized to        |
+|-----------|-----------------|----------------------|
+| Telegram  | `@botname cmd`  | strip bot mention    |
+| Discord   | `<@123> cmd`    | strip mention markup |
+| Slack     | `<@U01> cmd`    | strip mention markup |
+| CLI       | plain text      | as-is                |
+
+```python
+def normalize_text(platform: str, raw_text: str, bot_id: str) -> str:
+    if platform == "telegram":
+        return raw_text.replace(f"@{bot_id}", "").strip()
+    if platform == "discord":
+        return re.sub(r"<@!?\d+>\s*", "", raw_text).strip()
+    if platform == "slack":
+        return re.sub(r"<@\w+>\s*", "", raw_text).strip()
+    return raw_text.strip()
+```
+
+## Media Handling
+
+### Receiving Media
+
+```python
+async def download_media(attachment: MediaAttachment) -> Path:
+    """Download media to local temp file."""
+    local = TEMP_DIR / attachment.filename
+    async with aiohttp.ClientSession() as session:
+        async with session.get(attachment.url) as resp:
+            local.write_bytes(await resp.read())
+    return local
+```
+
+### Sending Media
+
+```python
+class AgentResponse:
+    text: str
+    media: list[MediaAttachment]
+    
+# Platform-specific rendering:
+# - CLI: print file path
+# - Telegram: send_photo / send_document
+# - Discord: attach file to message
+# - Slack: upload to channel
+```
+
+### Voice Messages
+
+```python
+async def handle_voice(attachment: MediaAttachment) -> str:
+    """Convert voice to text for agent processing."""
+    local = await download_media(attachment)
+    transcript = await speech_to_text(local)
+    return transcript  # Agent sees text, not audio
+```
+
+## Example: Same Agent, Two Platforms
+
+```python
+async def main():
+    agent = AgentCore(config)
+    gateway = PlatformGateway(agent)
+    
+    # Register adapters
+    gateway.register(CLIAdapter())
+    gateway.register(TelegramAdapter(token=os.environ["TG_TOKEN"]))
+    
+    # Both adapters route to the same agent
+    # CLI user types: "check server status"
+    # Telegram user sends: "check server status"
+    # Same agent handles both, responds via correct platform
+    
+    await gateway.start_all()
+```
+
+## Platform-Specific Response Formatting
+
+```python
+def format_for_platform(platform: str, response: AgentResponse) -> Any:
+    if platform == "cli":
+        return response.text  # plain text, maybe with ANSI colors
+    if platform == "telegram":
+        return {"text": response.text, "parse_mode": "Markdown"}
+    if platform == "discord":
+        return {"content": response.text[:2000]}  # Discord char limit
+    if platform == "slack":
+        return {"blocks": [{"type": "section", "text": {"type": "mrkdwn", "text": response.text}}]}
+```
+
+## Configuration
+
+```yaml
+# platform-gateway.yaml
+platforms:
+  cli:
+    enabled: true
+  telegram:
+    enabled: true
+    token_env: TELEGRAM_BOT_TOKEN
+  discord:
+    enabled: false
+    token_env: DISCORD_BOT_TOKEN
+  slack:
+    enabled: false
+    token_env: SLACK_BOT_TOKEN
+    signing_secret_env: SLACK_SIGNING_SECRET
+```
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/profile-isolation.md
+# Profile Isolation
+
+## Problem
+
+One agent configuration doesn't fit all contexts. A code reviewer agent needs different tools, memory, and rules than a DevOps agent. A production environment needs different guardrails than development. Without isolation, agents share state and config in ways that cause conflicts.
+
+## Core Pattern: Home Directory Override
+
+A single environment variable — `RAOS_HOME` — controls where all agent state lives. Every profile gets its own fully isolated directory tree.
+
+```
+~/.raos/                          # Default profile
+~/.raos-profiles/
+  ├── coder/                      # Coder profile
+  │   ├── config.yaml
+  │   ├── state/
+  │   │   └── sessions.db
+  │   ├── skills/
+  │   └── memory/
+  ├── reviewer/                   # Reviewer profile
+  │   ├── config.yaml
+  │   ├── state/
+  │   │   └── sessions.db
+  │   ├── skills/
+  │   └── memory/
+  └── devops/                     # DevOps profile
+      ├── config.yaml
+      ├── state/
+      │   └── sessions.db
+      ├── skills/
+      └── memory/
+```
+
+## Implementation
+
+### The Golden Rule: `get_raos_home()`
+
+Every piece of code that touches the filesystem MUST use this function. Never hardcode paths.
+
+```python
+import os
+
+def get_raos_home() -> str:
+    """Get the RAOS home directory. All paths derive from this."""
+    return os.environ.get("RAOS_HOME", os.path.expanduser("~/.raos"))
+
+def get_config_path() -> str:
+    return os.path.join(get_raos_home(), "config.yaml")
+
+def get_state_db_path() -> str:
+    return os.path.join(get_raos_home(), "state", "sessions.db")
+
+def get_skills_dir() -> str:
+    return os.path.join(get_raos_home(), "skills")
+
+def get_memory_dir() -> str:
+    return os.path.join(get_raos_home(), "memory")
+```
+
+### Profile Switching via CLI
+
+```bash
+# Use a specific profile
+raos -p coder "Write the auth module"
+raos -p reviewer "Review PR #42"
+raos -p devops "Deploy to staging"
+
+# Under the hood, -p sets RAOS_HOME:
+# raos -p coder → RAOS_HOME=~/.raos-profiles/coder raos "..."
+```
+
+### Profile Initialization
+
+```python
+def init_profile(name: str) -> str:
+    """Create a new isolated profile."""
+    base = os.path.expanduser("~/.raos-profiles")
+    profile_dir = os.path.join(base, name)
+    
+    # Create directory structure
+    os.makedirs(os.path.join(profile_dir, "state"), exist_ok=True)
+    os.makedirs(os.path.join(profile_dir, "skills"), exist_ok=True)
+    os.makedirs(os.path.join(profile_dir, "memory"), exist_ok=True)
+    
+    # Create default config
+    default_config = {
+        "profile_name": name,
+        "model": "claude-sonnet-4-20250514",
+        "max_iterations": 50,
+        "allowed_tools": ["all"],
+        "system_prompt_additions": "",
+    }
+    
+    config_path = os.path.join(profile_dir, "config.yaml")
+    with open(config_path, "w") as f:
+        yaml.dump(default_config, f)
+    
+    return profile_dir
+```
+
+## What Each Profile Isolates
+
+| Component | What's Isolated | Why |
+|-----------|----------------|-----|
+| `config.yaml` | Model, tools, limits, prompts | Different agents need different capabilities |
+| `state/sessions.db` | Conversation history | Reviewer shouldn't see coder's debug sessions |
+| `skills/` | Learned procedures/scripts | DevOps skills ≠ coding skills |
+| `memory/` | Persistent knowledge store | Project-specific institutional knowledge |
+
+## Use Cases
+
+### 1. Role-Based Profiles
+
+```yaml
+# ~/.raos-profiles/coder/config.yaml
+profile_name: coder
+model: claude-sonnet-4-20250514
+max_iterations: 100
+allowed_tools: [read_file, write_file, patch, search_files, terminal]
+system_prompt_additions: |
+  You are a senior software engineer. Write clean, tested code.
+  Always run tests after changes. Follow existing code patterns.
+
+# ~/.raos-profiles/reviewer/config.yaml
+profile_name: reviewer
+model: claude-sonnet-4-20250514
+max_iterations: 30
+allowed_tools: [read_file, search_files, terminal]  # No write access
+system_prompt_additions: |
+  You are a code reviewer. Read code, find bugs, suggest improvements.
+  Never modify files directly. Output review comments only.
+```
+
+### 2. Environment-Based Profiles
+
+```yaml
+# ~/.raos-profiles/dev/config.yaml
+profile_name: dev
+max_cost_per_session: 5.00
+allowed_tools: [all]
+dangerous_tool_confirmation: false
+
+# ~/.raos-profiles/prod/config.yaml
+profile_name: prod
+max_cost_per_session: 1.00
+allowed_tools: [read_file, search_files, terminal]  # No write in prod
+dangerous_tool_confirmation: true
+required_approval: [terminal]  # Human approval for shell commands
+```
+
+### 3. Project-Specific Profiles
+
+```yaml
+# ~/.raos-profiles/project-alpha/config.yaml
+profile_name: project-alpha
+model: claude-sonnet-4-20250514
+system_prompt_additions: |
+  Project Alpha uses:
+  - TypeScript + Next.js 14
+  - PostgreSQL + Prisma ORM
+  - pnpm for package management
+  - Vitest for testing
+  Always use these technologies. Check prisma schema before DB work.
+```
+
+## Profile Composition
+
+For advanced setups, profiles can inherit from a base:
+
+```yaml
+# ~/.raos-profiles/base/config.yaml
+model: claude-sonnet-4-20250514
+max_iterations: 50
+
+# ~/.raos-profiles/coder/config.yaml
+inherits: base
+max_iterations: 100  # Override
+allowed_tools: [all]  # Add
+```
+
+```python
+def load_config(profile_dir: str) -> dict:
+    config_path = os.path.join(profile_dir, "config.yaml")
+    with open(config_path) as f:
+        config = yaml.safe_load(f)
+    
+    if "inherits" in config:
+        base_dir = os.path.join(os.path.dirname(profile_dir), config["inherits"])
+        base_config = load_config(base_dir)
+        base_config.update(config)
+        return base_config
+    
+    return config
+```
+
+## Rules for Agents
+
+1. **Always use `get_raos_home()`.** Never write `~/.raos` directly in code.
+2. **Check `RAOS_HOME` at startup.** Log which profile is active.
+3. **Don't cross profile boundaries.** A coder profile must never read reviewer's state.
+4. **Initialize on first use.** If the profile directory doesn't exist, create it.
+5. **Profiles are disposable.** Delete a profile directory to reset completely.
+6. **Default is default.** If no `-p` flag, use `~/.raos` as the default profile.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/recipes/ado-tracking.md
 # Recipe: Azure DevOps Work-Item Tracking
 
@@ -4068,7 +9727,7 @@ If you catch yourself doing it sequentially when the tasks are independent, stop
 
 **When to use:** Project has an Azure DevOps backlog. Agents need to sync work items with code state (close items, update status, link commits).
 
-**Plug into your team lead:** Add to `CLAUDE.md`:
+**Plug into your team lead:** Add to your project instructions file (In Claude Code: `CLAUDE.md` / In GitHub Copilot CLI: `instructions.md`):
 
 ```
 - Azure DevOps integration active. The `ado` specialist owns work item sync.
@@ -4125,7 +9784,7 @@ Closed based on code evidence:
 - Tests: <status>
 - Epic rollup: #<epic number>
 
-Closure performed autonomously per CLAUDE.md. Flag via /raos if incorrect.
+Closure performed autonomously per project instructions (CLAUDE.md / instructions.md). Flag via /raos if incorrect.
 ```
 
 Why the "flag via /raos" line: gives the user a one-command escape if the specialist got it wrong. Preserves two-bucket trust.
@@ -4151,7 +9810,7 @@ You want the team to keep working after you close your laptop. This is the Stage
 
 - An accepted run with a manifest. You've run `/raos <objective>` interactively at least once. The `.agentic-os/runs/<run_id>/` folder exists.
 - The run's manifest has `status` in `running`, `paused`, or `verifying`. A done or killed run won't advance.
-- GitHub Copilot CLI CLI is on your PATH (check with `which claude`).
+- Your AI CLI is on your PATH (Claude Code: `which claude` / GitHub Copilot CLI: `which gh`).
 
 ## Three transports, one entry point
 
@@ -4189,7 +9848,7 @@ All three scheduler templates call the same script: `<SKILL_DIR>/harness/bin/hea
    schtasks /Create /TN "RAOS-<OS_NAME>-<RUN_ID>" /XML raos-task.xml
    ```
 4. Run once manually to verify: `schtasks /Run /TN "RAOS-<OS_NAME>-<RUN_ID>"`
-5. Note: `headless.sh` is bash. The template invokes it through Git Bash. If you run GitHub Copilot CLI under WSL, change the `<Command>` line to `wsl.exe` and the arguments accordingly.
+5. Note: `headless.sh` is bash. The template invokes it through Git Bash. If you run your AI CLI under WSL, change the `<Command>` line to `wsl.exe` and the arguments accordingly.
 6. Remove: `schtasks /Delete /TN "RAOS-<OS_NAME>-<RUN_ID>" /F`
 
 ### Cross-platform — GitHub Actions
@@ -4206,7 +9865,7 @@ Easier if your project is already a GitHub repo and you want runs to happen whet
 
 - `headless.sh` is invoked with `<project_root> <run_id>`.
 - It sets the run as active (`.agentic-os/runs/.active` → `<run_id>`).
-- It calls `gh copilot suggest -t shell "/raos resume <run_id>"`.
+- It calls `claude -p "/raos resume <run_id>"`.
 - The team-lead reads the manifest, current phase, last checkpoint, and recent trace. It continues from where it left off.
 - All hooks fire as normal. Trace appends. Costs roll up. Gates record.
 - If the run hits a guidance-bucket gate, team-lead writes the approval request to `manifest.gates[]` with `decision: deferred` and stops. The next scheduled wake-up will see the deferred gate and stop again until a human resumes via the interactive session and answers it.
@@ -4238,7 +9897,7 @@ The next scheduled wake-up will see the sentinel in `pre-tool-use.sh` and exit 2
 
 **When to use:** Building D365-connected Copilot Studio agents that enforce business rules. Rules change faster than code can ship. Business users want to change agent behavior without engineering.
 
-**Plug into your team lead:** Add to `CLAUDE.md`:
+**Plug into your team lead:** Add to your project instructions file (In Claude Code: `CLAUDE.md` / In GitHub Copilot CLI: `instructions.md`):
 
 ```
 - Niyam pattern active. Policies live in Dataverse tables (cr023_policy,
@@ -4297,7 +9956,7 @@ No prompts changed. Change a row → change the behavior. Disable a row → remo
 When a project opts into Dataverse + Copilot Studio at bootstrap:
 
 - The `dataverse` specialist gets a copy of this recipe in `.github/agents/dataverse.agent.md` (as a reference link).
-- CLAUDE.md notes the Niyam pattern is active.
+- The project instructions file notes the Niyam pattern is active (In Claude Code: `CLAUDE.md` / In GitHub Copilot CLI: `instructions.md`).
 - The `copilot-studio` specialist knows to route policy logic to Dataverse queries, not to topic YAML.
 
 ---
@@ -4332,7 +9991,7 @@ For full Niyam skill: `~/.github/skills/niyam-agent-template/SKILL.md`. RAOS poi
 
 **When to use:** Project touches Power Platform environments (Dataverse tables, Copilot Studio agents, Power Automate flows, solution imports). You care about not writing to the wrong tenant.
 
-**Plug into your team lead:** Add to `CLAUDE.md`:
+**Plug into your team lead:** Add to your project instructions file (In Claude Code: `CLAUDE.md` / In GitHub Copilot CLI: `instructions.md`):
 
 ```
 - Power Platform integration active. The `pac-cli` specialist owns auth.
@@ -4347,7 +10006,7 @@ For full Niyam skill: `~/.github/skills/niyam-agent-template/SKILL.md`. RAOS poi
 
 Every Power Platform write goes through these steps:
 
-1. **Declare the expected environment.** In CLAUDE.md, name it: `Expected PP environment: <env name or URL>`. Or the user confirms during objective parsing.
+1. **Declare the expected environment.** In your project instructions file (In Claude Code: `CLAUDE.md` / In GitHub Copilot CLI: `instructions.md`), name it: `Expected PP environment: <env name or URL>`. Or the user confirms during objective parsing.
 2. **Check the active profile.** `pac-cli` calls `mcp__pac-cli__auth_who` (or `pac auth who`).
 3. **Compare.** If active profile's environment == expected → proceed. If not → halt.
 4. **On mismatch:** do NOT call `pac auth select` automatically. Surface to cli-lead: "Active environment is X, expected Y. Proceed with X? Select profile for Y? Abort?" cli-lead asks the user.
@@ -4367,7 +10026,7 @@ Every Power Platform write goes through these steps:
 
 Power Platform environments look alike. Dev and Prod URLs differ by one word. Silent profile switches have deleted customer data. Fail-closed is cheap insurance.
 
-If the user finds the halt annoying, they can codify "for this project, always work in env X" in CLAUDE.md and then the pac-cli specialist can auto-switch to X at session start. but even then, only to the ONE declared env, never to something else.
+If the user finds the halt annoying, they can codify "for this project, always work in env X" in their project instructions file (In Claude Code: `CLAUDE.md` / In GitHub Copilot CLI: `instructions.md`) and then the pac-cli specialist can auto-switch to X at session start. but even then, only to the ONE declared env, never to something else.
 
 ---
 
@@ -4403,7 +10062,7 @@ This flow adds 2 seconds of latency and prevents 1 catastrophic mistake per year
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/recipes/resume-after-crash.md
 # Recipe: resume after crash
 
-Laptop hibernated. GitHub Copilot CLI froze and you killed it. SSH dropped mid-run. Whatever the reason, the session ended without `status: done`. The Scaffold is designed for this.
+Laptop hibernated. Your AI CLI session froze and you killed it. SSH dropped mid-run. Whatever the reason, the session ended without `status: done`. The Scaffold is designed for this.
 
 ## The short version
 
@@ -4601,7 +10260,7 @@ Exploratory work ("I don't know what I want yet") doesn't need this. you don't h
 
 **When to use:** Every project. This is the core safety + autonomy trade-off that makes objective-oriented execution possible without destroying anything.
 
-**Plug into your team lead:** RAOS bakes this into every bootstrapped CLAUDE.md automatically. You don't have to add it. but you can customize the buckets.
+**Plug into your team lead:** RAOS bakes this into every bootstrapped project instructions file automatically (In Claude Code: `CLAUDE.md` / In GitHub Copilot CLI: `instructions.md`). You don't have to add it. but you can customize the buckets.
 
 ---
 
@@ -4661,7 +10320,7 @@ When uncertain, default to guidance. The cost of a one-line "proceed?" is low. T
 
 ## Customizing per project
 
-In CLAUDE.md, you can expand or tighten the buckets:
+In your project instructions file (In Claude Code: `CLAUDE.md` / In GitHub Copilot CLI: `instructions.md`), you can expand or tighten the buckets:
 
 ```
 ## Autonomous bucket. AI can do without asking
@@ -4705,6 +10364,8 @@ The two-bucket rule is how the Team Lead earns trust. Apply it relentlessly.
 # Run lifecycle
 
 Every objective in V2 becomes a run. A run has six states. The team-lead drives the transitions. The hooks record them. The evaluator decides when synthesis is actually done.
+
+![Run Lifecycle](../assets/Run%20Lifecycle.png)
 
 ## The six states
 
@@ -4752,7 +10413,7 @@ checkpoints:
   - { ts: "2026-04-19T15:10:00Z", phase: "challenge", note: "phase complete" }
 ```
 
-The Stop hook also appends an auto checkpoint whenever GitHub Copilot CLI stops. That's why a crashed session still has a recent checkpoint to resume from.
+The Stop hook also appends an auto checkpoint whenever the session stops (In Claude Code this fires automatically via hooks / In GitHub Copilot CLI the team-lead writes checkpoints at phase boundaries — see [HOOKS-DEGRADED.md](../HOOKS-DEGRADED.md)). That's why a crashed session still has a recent checkpoint to resume from.
 
 ### 3. Verify
 
@@ -4790,11 +10451,540 @@ A closed run (done, killed, failed) stays in `.agentic-os/runs/`. Nothing auto-d
 | UserPromptSubmit | on `/raos kill`   | `<run_dir>/KILL` |
 | PreToolUse       | before every tool call | reads `KILL`, reads manifest (budget check if enforced) |
 | PostToolUse      | after every tool call | appends to `trace.ndjson`, bumps counters, may flip `status: paused` |
-| Stop             | on GitHub Copilot CLI stop | writes `checkpoint.json`, appends to `manifest.checkpoints[]`, runs `costs.sh` |
+| Stop             | on session stop (Claude Code: automatic hook / GitHub Copilot CLI: team-lead driven) | writes `checkpoint.json`, appends to `manifest.checkpoints[]`, runs `costs.sh` |
 
 ## The one invariant
 
 **If an objective is active, a run folder exists.** No orphan objectives. No in-memory state. Kill the laptop at any moment and `/raos resume` works. The Scaffold has no state that isn't in a file.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/session-persistence.md
+# Session Persistence
+
+## Problem
+
+Agents start every conversation from zero. They repeat mistakes, re-discover solutions, and lose all institutional knowledge between sessions. A human developer remembers "we tried approach X last week and it failed because Y." Agents don't — unless you build persistence.
+
+## Core Pattern: SQLite + FTS5
+
+Use SQLite with full-text search to store conversation history, decisions, and learnings across sessions.
+
+```
+┌──────────────┐     ┌──────────────────┐
+│   sessions   │────→│    messages       │
+│ id           │     │ session_id (FK)   │
+│ title        │     │ role              │
+│ created_at   │     │ content           │
+│ parent_id    │     │ tokens            │
+│ status       │     │ created_at        │
+│ summary      │     └──────────────────┘
+└──────────────┘              │
+                              ▼
+                    ┌──────────────────┐
+                    │ messages_fts     │
+                    │ (FTS5 virtual)   │
+                    │ content indexed  │
+                    └──────────────────┘
+```
+
+## Schema
+
+```sql
+CREATE TABLE sessions (
+    id TEXT PRIMARY KEY,           -- UUID
+    title TEXT NOT NULL,           -- Human-readable description
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    parent_id TEXT REFERENCES sessions(id),  -- For session chaining
+    status TEXT DEFAULT 'active',  -- active, completed, abandoned
+    summary TEXT,                  -- Post-session summary
+    objective TEXT,                -- What this session aimed to do
+    tags TEXT                      -- Comma-separated tags for filtering
+);
+
+CREATE TABLE messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL REFERENCES sessions(id),
+    role TEXT NOT NULL,            -- user, assistant, system, tool
+    content TEXT NOT NULL,
+    tokens_input INTEGER DEFAULT 0,
+    tokens_output INTEGER DEFAULT 0,
+    tool_name TEXT,                -- If role=tool, which tool
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- Full-text search index
+CREATE VIRTUAL TABLE messages_fts USING fts5(
+    content,
+    content='messages',
+    content_rowid='id'
+);
+
+-- Triggers to keep FTS in sync
+CREATE TRIGGER messages_ai AFTER INSERT ON messages BEGIN
+    INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
+END;
+
+CREATE TRIGGER messages_ad AFTER DELETE ON messages BEGIN
+    INSERT INTO messages_fts(messages_fts, rowid, content) VALUES('delete', old.id, old.content);
+END;
+
+-- Indexes
+CREATE INDEX idx_sessions_parent ON sessions(parent_id);
+CREATE INDEX idx_messages_session ON messages(session_id);
+CREATE INDEX idx_sessions_tags ON sessions(tags);
+```
+
+## Session Chaining
+
+When continuing previous work, link sessions:
+
+```python
+def continue_session(previous_session_id: str, new_objective: str) -> str:
+    """Create a new session that continues from a previous one."""
+    # Get the previous session's summary
+    prev = db.execute(
+        "SELECT summary, objective FROM sessions WHERE id = ?",
+        (previous_session_id,)
+    ).fetchone()
+    
+    new_id = str(uuid4())
+    db.execute(
+        "INSERT INTO sessions (id, title, parent_id, objective) VALUES (?, ?, ?, ?)",
+        (new_id, new_objective, previous_session_id, new_objective)
+    )
+    
+    # Inject previous context into new session's system prompt
+    context = f"""Continuing from previous session: {prev['objective']}
+Previous summary: {prev['summary']}
+New objective: {new_objective}"""
+    
+    return new_id, context
+```
+
+### Chain traversal:
+
+```python
+def get_session_chain(session_id: str) -> list[dict]:
+    """Walk back through parent sessions to build full history."""
+    chain = []
+    current = session_id
+    while current:
+        session = db.execute(
+            "SELECT id, objective, summary, parent_id FROM sessions WHERE id = ?",
+            (current,)
+        ).fetchone()
+        if not session:
+            break
+        chain.append(session)
+        current = session['parent_id']
+    return list(reversed(chain))  # Oldest first
+```
+
+## Searching Past Sessions
+
+The killer feature: agents can search before starting work.
+
+```python
+def search_history(query: str, limit: int = 10) -> list[dict]:
+    """Full-text search across all past session messages."""
+    results = db.execute("""
+        SELECT m.content, m.role, s.title, s.objective, s.id as session_id,
+               rank
+        FROM messages_fts AS fts
+        JOIN messages AS m ON m.id = fts.rowid
+        JOIN sessions AS s ON s.id = m.session_id
+        WHERE messages_fts MATCH ?
+        ORDER BY rank
+        LIMIT ?
+    """, (query, limit)).fetchall()
+    return results
+
+# Example: before debugging a Redis issue
+results = search_history("Redis connection timeout")
+# Returns past messages where Redis timeouts were discussed/solved
+```
+
+## What to Persist
+
+### Always persist:
+- **Decisions with rationale:** "Chose Redis over Memcached because we need pub/sub"
+- **Errors and their solutions:** "Got ECONNREFUSED — fixed by starting Redis before the app"
+- **Architecture choices:** "Using event sourcing for order state management"
+- **Configuration discoveries:** "Need to set `max_old_space_size=4096` for this build"
+
+### Persist as summary only:
+- Long tool outputs (just the outcome: "47 tests passed" not the full output)
+- File contents (just the path and what was changed)
+
+### Don't persist:
+- Raw file reads (re-read when needed)
+- Intermediate reasoning that led nowhere
+- Verbose build/install logs
+
+## Session Summary Generation
+
+At session end, generate a structured summary:
+
+```python
+def summarize_session(session_id: str) -> str:
+    """Generate a summary when a session completes."""
+    messages = db.execute(
+        "SELECT role, content FROM messages WHERE session_id = ? ORDER BY id",
+        (session_id,)
+    ).fetchall()
+    
+    # Extract key information
+    summary = {
+        "objective": get_objective(session_id),
+        "outcome": "completed" | "blocked" | "abandoned",
+        "what_was_done": [...],      # List of actions taken
+        "decisions_made": [...],      # Key choices
+        "errors_encountered": [...],  # Problems and solutions
+        "files_modified": [...],      # Changed files
+        "open_questions": [...]       # Unresolved items
+    }
+    
+    db.execute(
+        "UPDATE sessions SET summary = ?, status = 'completed' WHERE id = ?",
+        (json.dumps(summary), session_id)
+    )
+    return summary
+```
+
+## Integration: Pre-Work Search
+
+Before starting any task, search for relevant history:
+
+```python
+def pre_work_check(task_description: str) -> str:
+    """Search for past sessions relevant to current task."""
+    # Search for related work
+    results = search_history(task_description, limit=5)
+    
+    if results:
+        context = "## Relevant Past Sessions\n"
+        for r in results:
+            context += f"- **{r['title']}** (session {r['session_id'][:8]}): {r['content'][:200]}\n"
+        return context
+    
+    return "No relevant past sessions found."
+
+# Usage in agent loop
+task = "Fix the Redis connection pooling issue"
+past_context = pre_work_check(task)
+# Agent now knows what was tried before
+```
+
+## Database Location
+
+```python
+import os
+
+def get_db_path() -> str:
+    raos_home = os.environ.get("RAOS_HOME", os.path.expanduser("~/.raos"))
+    return os.path.join(raos_home, "state", "sessions.db")
+```
+
+The database lives under the RAOS home directory, making it profile-aware (see profile-isolation.md).
+
+## Rules for Agents
+
+1. **Search before you start.** Always check if this problem was solved before.
+2. **Log decisions explicitly.** Don't just make a choice — record it with the "why."
+3. **Summarize on exit.** Every session gets a summary, even abandoned ones.
+4. **Chain related sessions.** Use `parent_id` to link continued work.
+5. **Tag sessions.** Tags like "redis", "auth", "migration" make future search easier.
+6. **Don't store raw outputs.** Summaries are searchable; 5000-line logs are not.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/terminal-backends.md
+# Terminal Backends — Abstract Execution Across Environments
+
+> Same agent, same commands — different execution environments. Local, Docker, SSH, or cloud.
+
+## Core Pattern
+
+The agent calls `execute(command, timeout, workdir)` and gets back `{output, exit_code}`. It never knows (or cares) whether the command ran locally, in a container, on a remote server, or in a serverless function.
+
+```
+Agent
+  │
+  ▼
+TerminalBackend (interface)
+  ├── LocalBackend      → subprocess on host machine
+  ├── DockerBackend     → docker exec in container
+  ├── SSHBackend        → ssh remote execution
+  └── CloudBackend      → Modal/Lambda/serverless
+```
+
+## Interface
+
+```python
+from dataclasses import dataclass
+from typing import Protocol
+
+@dataclass
+class ExecResult:
+    output: str
+    exit_code: int
+    duration_ms: int
+
+class TerminalBackend(Protocol):
+    name: str
+    
+    async def execute(
+        self,
+        command: str,
+        timeout: int = 180,
+        workdir: str | None = None
+    ) -> ExecResult:
+        """Execute a command and return output + exit code."""
+        ...
+    
+    async def write_file(self, path: str, content: str) -> None:
+        """Write a file in the execution environment."""
+        ...
+    
+    async def read_file(self, path: str) -> str:
+        """Read a file from the execution environment."""
+        ...
+    
+    async def is_healthy(self) -> bool:
+        """Check if the backend is available."""
+        ...
+```
+
+## Backend: Local
+
+Direct subprocess execution on the host machine.
+
+```python
+class LocalBackend:
+    name = "local"
+    
+    async def execute(self, command, timeout=180, workdir=None):
+        start = time.monotonic()
+        proc = await asyncio.create_subprocess_shell(
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+            cwd=workdir
+        )
+        try:
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        except asyncio.TimeoutError:
+            proc.kill()
+            return ExecResult(output="Command timed out", exit_code=-1,
+                            duration_ms=int((time.monotonic()-start)*1000))
+        
+        return ExecResult(
+            output=stdout.decode(errors="replace"),
+            exit_code=proc.returncode,
+            duration_ms=int((time.monotonic() - start) * 1000)
+        )
+    
+    async def is_healthy(self):
+        return True  # always available
+```
+
+## Backend: Docker
+
+Execute commands inside a running container. Ideal for untrusted code.
+
+```python
+class DockerBackend:
+    name = "docker"
+    
+    def __init__(self, image="python:3.12-slim", container_name=None):
+        self.image = image
+        self.container_name = container_name or f"raos-sandbox-{uuid4().hex[:8]}"
+        self._started = False
+    
+    async def ensure_container(self):
+        if not self._started:
+            await self.execute_host(
+                f"docker run -d --name {self.container_name} "
+                f"-v {self.workspace}:/workspace -w /workspace "
+                f"{self.image} sleep infinity"
+            )
+            self._started = True
+    
+    async def execute(self, command, timeout=180, workdir=None):
+        await self.ensure_container()
+        wd = workdir or "/workspace"
+        start = time.monotonic()
+        result = await self.execute_host(
+            f"docker exec -w {wd} {self.container_name} sh -c {shlex.quote(command)}",
+            timeout=timeout
+        )
+        result.duration_ms = int((time.monotonic() - start) * 1000)
+        return result
+    
+    async def cleanup(self):
+        await self.execute_host(f"docker rm -f {self.container_name}")
+```
+
+## Backend: SSH
+
+Remote execution over SSH. Good for GPU servers, staging environments.
+
+```python
+class SSHBackend:
+    name = "ssh"
+    
+    def __init__(self, host, user="root", key_file=None, port=22):
+        self.host = host
+        self.user = user
+        self.key_file = key_file
+        self.port = port
+    
+    async def execute(self, command, timeout=180, workdir=None):
+        cd = f"cd {workdir} && " if workdir else ""
+        ssh_cmd = (
+            f"ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no "
+            f"-p {self.port} "
+            f"{f'-i {self.key_file} ' if self.key_file else ''}"
+            f"{self.user}@{self.host} "
+            f"{shlex.quote(cd + command)}"
+        )
+        start = time.monotonic()
+        proc = await asyncio.create_subprocess_shell(
+            ssh_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        return ExecResult(
+            output=stdout.decode(errors="replace"),
+            exit_code=proc.returncode,
+            duration_ms=int((time.monotonic() - start) * 1000)
+        )
+    
+    async def is_healthy(self):
+        result = await self.execute("echo ok", timeout=10)
+        return result.exit_code == 0
+```
+
+## Backend: Cloud (Modal/Serverless)
+
+Execute in serverless containers. Pay-per-use, auto-scaling.
+
+```python
+class ModalBackend:
+    name = "cloud"
+    
+    def __init__(self, app_name="raos-sandbox", gpu=None):
+        self.app_name = app_name
+        self.gpu = gpu  # e.g. "T4", "A100"
+    
+    async def execute(self, command, timeout=180, workdir=None):
+        import modal
+        stub = modal.Stub(self.app_name)
+        
+        @stub.function(gpu=self.gpu, timeout=timeout)
+        def run_command(cmd: str, wd: str) -> tuple[str, int]:
+            import subprocess
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=wd)
+            return result.stdout + result.stderr, result.returncode
+        
+        start = time.monotonic()
+        output, code = await run_command.remote(command, workdir or "/tmp")
+        return ExecResult(
+            output=output, exit_code=code,
+            duration_ms=int((time.monotonic() - start) * 1000)
+        )
+```
+
+## Backend Selection
+
+Configured per-project in the RAOS config:
+
+```yaml
+# .claude/config.yaml
+terminal:
+  default_backend: local
+  backends:
+    local:
+      type: local
+    docker:
+      type: docker
+      image: node:20-slim
+      workspace: /tmp/raos-sandbox
+    gpu:
+      type: ssh
+      host: gpu-server.internal
+      user: ubuntu
+      key_file: ~/.ssh/gpu_key
+    cloud:
+      type: modal
+      gpu: T4
+  
+  # Route rules: pattern -> backend
+  routing:
+    - pattern: "npm|node|webpack"
+      backend: docker
+    - pattern: "python.*train|torch|cuda"
+      backend: gpu
+    - pattern: "*"
+      backend: local
+```
+
+```python
+def select_backend(command: str, config: dict) -> TerminalBackend:
+    for rule in config.get("routing", []):
+        if re.search(rule["pattern"], command):
+            return backends[rule["backend"]]
+    return backends[config.get("default_backend", "local")]
+```
+
+## File Sync for Non-Local Backends
+
+When using Docker, SSH, or cloud backends, files need syncing:
+
+```python
+class FileSyncer:
+    async def push(self, local_path: Path, remote_path: str, backend: TerminalBackend):
+        """Upload local file to remote environment."""
+        if isinstance(backend, DockerBackend):
+            await execute_host(f"docker cp {local_path} {backend.container_name}:{remote_path}")
+        elif isinstance(backend, SSHBackend):
+            await execute_host(f"scp {local_path} {backend.user}@{backend.host}:{remote_path}")
+    
+    async def pull(self, remote_path: str, local_path: Path, backend: TerminalBackend):
+        """Download remote file to local."""
+        if isinstance(backend, DockerBackend):
+            await execute_host(f"docker cp {backend.container_name}:{remote_path} {local_path}")
+        elif isinstance(backend, SSHBackend):
+            await execute_host(f"scp {backend.user}@{backend.host}:{remote_path} {local_path}")
+```
+
+## Isolation Benefits
+
+| Concern             | Local | Docker | SSH   | Cloud  |
+|---------------------|-------|--------|-------|--------|
+| Untrusted code      | ❌    | ✅     | ✅    | ✅     |
+| GPU access          | Maybe | ❌     | ✅    | ✅     |
+| Network isolation   | ❌    | ✅     | ✅    | ✅     |
+| No local deps       | ❌    | ✅     | ✅    | ✅     |
+| Zero setup          | ✅    | ❌     | ❌    | ❌     |
+| Speed               | ⚡    | Fast   | Slow  | Variable|
+
+## Example: Agent Runs Locally, Executes in Docker
+
+```python
+# Agent config
+backend = DockerBackend(image="python:3.12-slim")
+
+# Agent thinks it's running normally:
+result = await backend.execute("python -c 'print(1+1)'")
+# output: "2", exit_code: 0
+# But it actually ran inside a container
+
+result = await backend.execute("rm -rf /")
+# Destroys container filesystem, not host
+# Container can be recreated instantly
+```
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START references/the-4-stages.md
@@ -4806,7 +10996,7 @@ The map from where you are to where you're going.
 
 ## Where we are today
 
-You open GitHub Copilot CLI, type a task, get an output. You read it, fix it, integrate it, commit it. Then you type the next task.
+You open your AI coding assistant (Claude Code or GitHub Copilot CLI), type a task, get an output. You read it, fix it, integrate it, commit it. Then you type the next task.
 
 The AI is fast. The AI is cheap. But the AI is your hammer, and you are still swinging it one nail at a time. You are the planner, the decomposer, the synthesizer, the QA, the integrator. The AI writes the code in between.
 
@@ -4863,7 +11053,7 @@ Now you say "build the feature," not "write the function." The AI reads your pro
 You still own the plan. You still approve the work. But you stop writing task by task. You describe what you want; the AI figures out how to break it down.
 
 **What makes Stage 2 work:**
-- A `CLAUDE.md` at the project root that tells every agent what the project is.
+- A project instructions file at the project root that tells every agent what the project is (In Claude Code: `CLAUDE.md` / In GitHub Copilot CLI: `instructions.md`).
 - Sub-agents in `.github/agents/` with clear names and ownership.
 - A skills library that encodes how your team actually works.
 - Git worktrees for parallel streams.
@@ -4885,7 +11075,7 @@ At this stage the agents coordinate with each other, not just with you. They sha
 What you own shrinks to two things: **the objective** and **the guardrails**. What does success look like? What is not allowed to break? Everything else is the team's job.
 
 **What makes Stage 3 work:**
-- Agent Teams (GitHub Copilot CLI's newest multi-agent capability).
+- Agent Teams (multi-agent capability available in Claude Code and GitHub Copilot CLI).
 - Evals so the team knows when it's done.
 - Verification loops so the team can self-check.
 - Guardrails on what the team can touch (tool allowlists, permission gates, two-bucket approval).
@@ -4928,7 +11118,7 @@ If you are in Stage 1, here is the move.
 
 **This week:** Install RAOS in one project. Let it bootstrap a team. Describe a project, not a task. Let the team decompose it. Review the merged output, not the intermediate steps.
 
-**This month:** Write a `CLAUDE.md` for your main project. Codify one skill you use every day. Create one specialist agent that does work you keep repeating.
+**This month:** Write a project instructions file for your main project (In Claude Code: `CLAUDE.md` / In GitHub Copilot CLI: `instructions.md`). Codify one skill you use every day. Create one specialist agent that does work you keep repeating.
 
 **This quarter:** Run a real project through Stage 2 end to end. Measure how much faster. Measure how much less you typed. Then describe the next project as an objective, not a feature list.
 
@@ -4944,6 +11134,8 @@ RAOS V1 got you to Stage 2 reliably. Stage 3 worked if you never closed your lap
 
 The Scaffold is the missing piece. It's the thin OS layer around the agent loop that makes Stage 3 survive across sessions and makes Stage 4 tractable on a cron.
 
+![Separate the Builder from the Judge](../assets/Separate%20the%20Builder%20from%20the%20Judge.png)
+
 ## What it is
 
 A directory. That's it. The Scaffold lives at `.agentic-os/runs/<run_id>/` inside your project. Every objective you accept gets its own run folder. Inside, five small files carry all the state an agent needs to pick up where it left off:
@@ -4958,7 +11150,7 @@ A directory. That's it. The Scaffold lives at `.agentic-os/runs/<run_id>/` insid
 └── gates/                 pending auth or approval sentinels
 ```
 
-Four GitHub Copilot CLI hooks keep those files current:
+In Claude Code, four hooks keep those files current. In GitHub Copilot CLI, which does not support hooks natively, the team-lead prompt compensates (see [HOOKS-DEGRADED.md](../HOOKS-DEGRADED.md)):
 
 - `PreToolUse` — kill switch, optional budget enforcement, auth gate dispatch
 - `PostToolUse` — append to trace.ndjson, increment counters, circuit breaker
@@ -4979,7 +11171,7 @@ Stage 4 follows for free. Once state is durable, the difference between "I'll ru
 
 ## What it is not
 
-- **Not a framework.** It composes GitHub Copilot CLI's existing primitives (subagents, skills, hooks, `context: fork`, `/loop`). It replaces nothing.
+- **Not a framework.** It composes the runtime's existing primitives (In Claude Code: subagents, skills, hooks, `context: fork`, `/loop` / In GitHub Copilot CLI: agents, skills, instructions). It replaces nothing.
 - **Not an enforcer.** Budgets are observability-only by default. The Scaffold watches. It doesn't interrupt unless you flip `budgets.enforce: true` in a manifest.
 - **Not a dashboard.** NDJSON traces are grep-able by humans and by Claude. If you want a UI, `harness/bin/trace-to-sqlite.sh` gets you one query away.
 - **Not a scheduler.** It ships schedule templates (launchd, Windows Task Scheduler, GitHub Actions) but does not install them. You decide when headless runs happen.
@@ -5004,63 +11196,187 @@ Stage 2 worked because you could see the team think. Stage 3 works because the t
 The Scaffold is the clipboard your team never had. Everything else is a file.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START templates/CLAUDE.md.template
-# {{PROJECT_NAME}}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START templates/agent-discovery.md
+# Agent Discovery — Self-Registering Agent Pattern
 
-{{ONE_SENTENCE_DESCRIPTION}}
+> Drop a YAML or Markdown file in the agents directory and it's auto-discovered at boot.
 
-## Agentic OS. how this project is organized
+## How It Works
 
-This project runs on RAOS (Ragnar's Agentic OS). The user speaks to the Team Lead (`.github/agents/cli-lead.md`). The Team Lead delegates to specialists. All work flows through `.github/tasks.json`.
+1. On startup, the OS scans `.claude/agents/` (or `.github/agents/`) for `*.md` and `*.yaml` files
+2. Each file is parsed into an agent definition
+3. All discovered agents are registered in an in-memory registry
+4. The team-lead agent can assign tasks to any registered agent
 
-Invoke the team with `/raos` from anywhere in this project folder.
+No code changes needed. No config file to update. Just drop a file.
 
-## Team
+## Agent Definition Format (YAML)
 
-| Agent | What it owns |
-|---|---|
-| `cli-lead` | Team lead. Accepts objectives, decomposes, dispatches. |
-{{SPECIALIST_ROWS}}
+### Required Fields
 
-## Active integrations
+| Field           | Type       | Description                                    |
+|-----------------|------------|------------------------------------------------|
+| `name`          | string     | Unique agent identifier (e.g. `frontend-dev`)  |
+| `role`          | string     | One-line role description                      |
+| `description`   | string     | What this agent does, when to use it           |
+| `allowed_tools` | list[str]  | Tools this agent can use                       |
+| `triggers`      | list[str]  | Keywords/patterns that route tasks to this agent |
 
-{{INTEGRATION_LIST}}
+### Optional Fields
 
-## Autonomous bucket. AI can do without asking
+| Field              | Type   | Default   | Description                          |
+|--------------------|--------|-----------|--------------------------------------|
+| `max_iterations`   | int    | 10        | Max tool-call loops per task         |
+| `model_preference` | string | (default) | Preferred model (e.g. `claude-opus`) |
+| `cost_limit`       | float  | 5.00      | Max $ spend per invocation           |
+| `timeout_minutes`  | int    | 30        | Hard timeout per task                |
+| `dependencies`     | list   | []        | Other agents this one can delegate to |
 
-{{AUTONOMOUS_ACTIONS}}
+## Example: YAML Agent Definition
 
-## Guidance bucket. AI must confirm before acting
+```yaml
+# .claude/agents/frontend-dev.yaml
+name: frontend-dev
+role: Frontend specialist
+description: |
+  Handles React/Vue/Svelte components, CSS, responsive design,
+  accessibility audits, and frontend build pipelines.
+allowed_tools:
+  - read_file
+  - write_file
+  - terminal
+  - search_files
+  - browser
+triggers:
+  - frontend
+  - react
+  - css
+  - component
+  - UI
+  - responsive
+max_iterations: 15
+model_preference: claude-sonnet
+cost_limit: 3.00
+```
 
-{{GUIDANCE_ACTIONS}}
+## Example: Markdown Agent Definition
 
-## Guardrails (always on)
+```markdown
+# .claude/agents/devops.md
+---
+name: devops
+role: DevOps and infrastructure specialist
+allowed_tools: [terminal, read_file, write_file, search_files]
+triggers: [deploy, docker, ci, pipeline, kubernetes, terraform]
+max_iterations: 20
+cost_limit: 5.00
+---
 
-1. No destructive git (force push, reset --hard, branch -D, checkout --) without explicit user approval, every time.
-2. No production writes without auth verification. For Power Platform, the pac-cli specialist runs `auth_who` first. For Azure, the azure specialist runs `az account show` first.
-3. No secret exfiltration to external services (Slack, pastebins, external APIs) without explicit user approval per destination.
-4. Two-bucket rule: classify every action as autonomous or guidance before taking it. When uncertain, default to guidance.
-5. Single-owner-per-file. If two agents need the same file, route through cli-lead to sequence them.
+You are a DevOps specialist. You handle:
+- CI/CD pipeline configuration
+- Docker and container orchestration
+- Infrastructure as Code (Terraform, Pulumi)
+- Cloud deployment (AWS, Azure, GCP)
+- Monitoring and alerting setup
 
-## Top outcomes (next 30 days)
+Always validate configs before applying. Never deploy to production without confirmation.
+```
 
-{{TOP_OUTCOMES}}
+## Discovery Implementation
 
-These are the first candidate objectives. The user may phrase them as objectives (via `/raos <objective>`) or as projects.
+```python
+import yaml
+from pathlib import Path
 
-## Reviewer
+def discover_agents(project_root: Path) -> dict:
+    """Scan agents directory, return {name: AgentDef} registry."""
+    registry = {}
+    for agents_dir in [
+        project_root / ".claude" / "agents",
+        project_root / ".github" / "agents",
+    ]:
+        if not agents_dir.is_dir():
+            continue
+        for f in agents_dir.iterdir():
+            if f.suffix == ".yaml":
+                agent = yaml.safe_load(f.read_text())
+            elif f.suffix == ".md":
+                agent = parse_md_frontmatter(f.read_text())
+            else:
+                continue
+            if agent and "name" in agent:
+                registry[agent["name"]] = agent
+    return registry
+```
 
-Final output is reviewed by: {{REVIEWER}}
+## Discovery Directory Structure
 
-## Integration recipes
+```
+.claude/
+  agents/
+    team-lead.md          # orchestrator
+    frontend-dev.yaml     # auto-discovered
+    backend-dev.yaml      # auto-discovered
+    devops.md             # auto-discovered
+    qa-tester.yaml        # auto-discovered
+```
 
-{{RECIPE_LINKS}}
+## Agent Registry API
 
-## Notes
+Once discovered, agents are queryable:
 
-- Never call this "CLI". It is the Agentic OS, or the AI team.
-- The user only speaks to `cli-lead`. All specialist work flows through the Team Lead.
-- To add or remove team members, run `/raos` and choose the edit flow. don't hand-edit `.github/agents/` during an objective run.
+```python
+registry = discover_agents(project_root)
+
+# List all agents
+names = list(registry.keys())
+
+# Find agent by trigger keyword
+def find_agent(keyword: str) -> str | None:
+    for name, defn in registry.items():
+        if keyword.lower() in [t.lower() for t in defn.get("triggers", [])]:
+            return name
+    return None
+
+# Route a task
+agent = find_agent("react")  # -> "frontend-dev"
+```
+
+## Validation
+
+On discovery, validate each agent definition:
+
+1. `name` must be unique across all discovered agents
+2. `allowed_tools` must reference valid tool names
+3. `triggers` must be non-empty (otherwise agent is never routed to)
+4. `cost_limit` must be positive if set
+5. Log warnings for malformed files, skip them, don't crash
+
+## Hot Reload
+
+For development, watch the agents directory:
+
+```python
+# Re-scan every N seconds or on file change
+import time
+last_scan = 0
+SCAN_INTERVAL = 30  # seconds
+
+def get_registry(project_root):
+    global last_scan, _registry
+    if time.time() - last_scan > SCAN_INTERVAL:
+        _registry = discover_agents(project_root)
+        last_scan = time.time()
+    return _registry
+```
+
+## Best Practices
+
+- One agent per file — keeps definitions atomic and diffable
+- Use YAML for pure config, Markdown for agents with system prompts
+- Keep trigger lists specific — avoid generic words like "code" or "help"
+- Set conservative cost_limit defaults, raise per-agent as needed
+- Version control your agents/ directory — it's your team definition
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START templates/agents/README.md
@@ -5518,23 +11834,23 @@ Before any write, confirm with pac-cli that the active auth is the expected envi
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START templates/agents/evaluator.agent.md
 ---
 name: evaluator
-description: Independent judge of deliverables against verification.yaml. Never generates, only evaluates. Invoked by the team-lead after Synthesis, before reporting done. Runs in a forked context so its reasoning never pollutes the main thread.
+description: Independent judge of deliverables against verification.yaml. Never generates, only evaluates. Invoked by the team-lead after Synthesis, before reporting done.
 tools: Read, Glob, Grep, Bash
-context: fork
-agent: general-purpose
 ---
 
 # Evaluator
 
 You are the Evaluator. You are not part of the build. You are the skeptic.
 
-The team-lead has just finished Synthesis and believes the objective is complete. Your job is to read the run's `verification.yaml`, check each criterion against the actual deliverables, and return a verdict. You are separated from the team-lead on purpose, in a forked context, so you do not inherit any rationalization about why the work is "basically fine."
+The team-lead has just finished Synthesis and believes the objective is complete. Your job is to read the run's `verification.yaml`, check each criterion against the actual deliverables, and return a verdict.
+
+**Manual isolation note (GitHub Copilot CLI):** This agent does not run in a forked context. When the team-lead invokes you, it should do so with explicit separation: "Ignore all prior reasoning about this objective. Evaluate fresh from verification.yaml only." You must honor this — do not reference any reasoning, plans, or conclusions from the Synthesis phase. Read only the verification criteria and the actual deliverables on disk.
 
 You never generate code. You never propose fixes. You only judge.
 
 ## What you receive
 
-The team-lead dispatches you with:
+The team-lead invokes you with:
 
 - `RUN_DIR` — absolute path to `.agentic-os/runs/<run_id>/`
 - An instruction: "Evaluate the current objective. Use RUN_DIR/verification.yaml."
@@ -5552,6 +11868,34 @@ Read `$RUN_DIR/verification.yaml`. For each criterion in `criteria[]`:
    - `fail` — criterion is clearly not met. Evidence is one line: what you looked at and why it failed.
    - `inconclusive` — you cannot tell. Evidence is one line: what would you need to resolve it.
 4. **Do not speculate.** If the how_to_verify is a command and it errors, that is a `fail` or `inconclusive`, not a `pass with caveats`.
+
+## Verification examples
+
+Here are examples of well-written criteria and how to evaluate them:
+
+**Example 1 — Command-based:**
+```yaml
+- id: c1
+  description: "API responds within 3 seconds"
+  how_to_verify: "Run: curl -w '%{time_total}' -o /dev/null -s http://localhost:3000/api/health"
+```
+Evaluation: Run the command. If time_total <= 3.0, `pass`. If > 3.0, `fail` with the actual time. If command errors, `fail` or `inconclusive`.
+
+**Example 2 — File-based:**
+```yaml
+- id: c2
+  description: "Migration script exists and is executable"
+  how_to_verify: "Check that scripts/migrate.sh exists and has +x permission"
+```
+Evaluation: `ls -la scripts/migrate.sh`. If exists and executable, `pass`. Otherwise `fail`.
+
+**Example 3 — Test-based:**
+```yaml
+- id: c3
+  description: "All unit tests pass"
+  how_to_verify: "Run: npm test"
+```
+Evaluation: Run `npm test`. If exit code 0, `pass`. If non-zero, `fail` with the failure summary.
 
 ## Your output
 
@@ -5586,11 +11930,11 @@ No prose. No recommendations. No code. The team-lead reads the file for details.
 
 ## Why you exist
 
-From Anthropic's harness design work: *"Separating the agent doing the work from the agent judging it proves to be a strong lever."* A generator asked to critique itself produces polite, confident self-praise. You are the generator's skeptic. Your forked context is not a detail — it is the whole point. If you had the team-lead's reasoning trail, you would inherit its blind spots.
+Separating the agent doing the work from the agent judging it is a strong lever. A generator asked to critique itself produces polite, confident self-praise. You are the generator's skeptic. On Claude Code, you'd run in a forked context for hard isolation. On Copilot CLI, the team-lead enforces separation by invoking you with explicit instructions to ignore prior reasoning. Honor that separation — it is the whole point.
 
 ## Iteration cap
 
-The team-lead will dispatch you up to `max_iterations` times (default 3). If you return `needs_revision` on the third iteration, the team-lead stops trying and escalates to the user with the full failing criteria list. That escalation is a guidance-bucket action — the user decides whether to extend, re-scope, or abandon.
+The team-lead will invoke you up to `max_iterations` times (default 3). If you return `needs_revision` on the third iteration, the team-lead stops trying and escalates to the user with the full failing criteria list. That escalation is a guidance-bucket action — the user decides whether to extend, re-scope, or abandon.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START templates/agents/github.agent.md
@@ -5685,7 +12029,7 @@ gh pr create --title "<short title under 70 chars>" --body "$(cat <<'EOF'
 - [ ] <test step>
 - [ ] <test step>
 
-🤖 Generated with [GitHub Copilot CLI](https://claude.com/claude-code)
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
 )"
 ```
@@ -5784,6 +12128,91 @@ If prerequisites are missing, return to cli-lead with the specific missing item.
 - Never publish to production without explicit user confirmation.
 - Never commit `pac auth list` output or profile files. they contain tokens.
 - Never refer to this work as "CLI work" to the user. It's "Power Platform work."
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START templates/gitignore.template
+# .gitignore template for RAOS V2 projects
+# Copy this to your project's .gitignore or append these lines.
+
+# RAOS local state (per-project, not shared)
+.agentic-os/runs/*/trace.ndjson
+.agentic-os/runs/*/costs.json
+.agentic-os/runs/*/headless.log
+.agentic-os/runs/*/checkpoint.json
+.agentic-os/memory.md
+.agentic-os/routines.md
+
+# Keep manifests and verification files (useful for team visibility)
+# Uncomment these if you also want to exclude them:
+# .agentic-os/runs/*/manifest.yaml
+# .agentic-os/runs/*/verification.yaml
+
+# OS metadata (personal to each user)
+.agentic-os/os.txt
+.agentic-os/version.txt
+
+# Kill sentinels (ephemeral)
+.agentic-os/runs/*/KILL
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START templates/instructions.md.template
+# {{PROJECT_NAME}}
+
+{{ONE_SENTENCE_DESCRIPTION}}
+
+## Agentic OS. how this project is organized
+
+This project runs on RAOS (Ragnar's Agentic OS). The user speaks to the Team Lead (`.github/agents/cli-lead.md`). The Team Lead delegates to specialists. All work flows through `.github/tasks.json`.
+
+Invoke the team with `/raos` from anywhere in this project folder.
+
+## Team
+
+| Agent | What it owns |
+|---|---|
+| `cli-lead` | Team lead. Accepts objectives, decomposes, dispatches. |
+{{SPECIALIST_ROWS}}
+
+## Active integrations
+
+{{INTEGRATION_LIST}}
+
+## Autonomous bucket. AI can do without asking
+
+{{AUTONOMOUS_ACTIONS}}
+
+## Guidance bucket. AI must confirm before acting
+
+{{GUIDANCE_ACTIONS}}
+
+## Guardrails (always on)
+
+1. No destructive git (force push, reset --hard, branch -D, checkout --) without explicit user approval, every time.
+2. No production writes without auth verification. For Power Platform, the pac-cli specialist runs `auth_who` first. For Azure, the azure specialist runs `az account show` first.
+3. No secret exfiltration to external services (Slack, pastebins, external APIs) without explicit user approval per destination.
+4. Two-bucket rule: classify every action as autonomous or guidance before taking it. When uncertain, default to guidance.
+5. Single-owner-per-file. If two agents need the same file, route through cli-lead to sequence them.
+
+## Top outcomes (next 30 days)
+
+{{TOP_OUTCOMES}}
+
+These are the first candidate objectives. The user may phrase them as objectives (via `/raos <objective>`) or as projects.
+
+## Reviewer
+
+Final output is reviewed by: {{REVIEWER}}
+
+## Integration recipes
+
+{{RECIPE_LINKS}}
+
+## Notes
+
+- Never call this "CLI". It is the Agentic OS, or the AI team.
+- The user only speaks to `cli-lead`. All specialist work flows through the Team Lead.
+- To add or remove team members, run `/raos` and choose the edit flow. don't hand-edit `.github/agents/` during an objective run.
+- GitHub Copilot CLI does not support automatic hooks. The team-lead handles checkpointing and tracing at phase boundaries. See HOOKS-DEGRADED.md.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START templates/objective.template.md
@@ -5951,7 +12380,7 @@ tools: {{TOOL_LIST}}
 
 # {{SPECIALIST_NAME}}
 
-You are the {{SPECIALIST_NAME}} for this project. You report to the Team Lead (cli-lead). The user does not speak to you directly. they give objectives to cli-lead, and cli-lead dispatches relevant phases to you.
+You are the {{SPECIALIST_NAME}} for this project. You report to the Team Lead (cli-lead). The user does not speak to you directly. they give objectives to cli-lead, and cli-lead invokes you by reading this file and following these instructions.
 
 ## What you own
 
@@ -6113,8 +12542,8 @@ When handing off work to another specialist, update the task's `coordinates_with
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-START templates/team-lead.agent.md
 ---
 name: cli-lead
-description: Team Lead for this project's Agentic OS. The user only talks to me. I read objectives, decompose them into 3-phase plans (Research → Challenge → Synthesis), dispatch specialists in parallel, and deliver verified results. I own the shared task list in .github/tasks.json, the run manifest in .agentic-os/runs/<run_id>/, and enforce the guardrails from CLAUDE.md.
-tools: Read, Write, Edit, Bash, Glob, Grep, TodoWrite, Agent, Skill
+description: Team Lead for this project's Agentic OS. The user only talks to me. I read objectives, decompose them into 4-phase plans (Research → Challenge → Synthesis → Verify), invoke specialists, and deliver verified results. I own the shared task list in .github/tasks.json, the run manifest in .agentic-os/runs/<run_id>/, and enforce the guardrails from instructions.md.
+tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # Team Lead
@@ -6125,15 +12554,16 @@ You are the Team Lead for this project. The user invokes you through `/raos` or 
 
 You are the only agent the user speaks to. Every specialist in `.github/agents/` reports to you. Your job is to translate objectives into coordinated action and deliver results, not drafts.
 
-You are calm, fast, and specific. You never ask the user to decompose their own objective. You never hand back a draft when a finished result is possible. You never break the guardrails in CLAUDE.md.
+You are calm, fast, and specific. You never ask the user to decompose their own objective. You never hand back a draft when a finished result is possible. You never break the guardrails in instructions.md.
 
 ## What you own
 
-1. **The shared task list**. `.github/tasks.json`. Every phase and handoff updates it. Users check state via `/raos status`.
+1. **The shared task list**. `.github/tasks.json`. Every phase and handoff updates it. Users check state via `/raos status`. When updating tasks.json, read the file first and merge your changes — never blindly overwrite, as another specialist may have written to it. If you detect a conflict (e.g., a task changed since you last read), re-read and retry.
 2. **The run manifest**. `.agentic-os/runs/<run_id>/manifest.yaml`. Every objective becomes a run. You write the manifest on accept, update `status` and `current_phase` as you progress, append to `gates[]` on every gate decision, and treat the run folder as the durable state for the objective. See [references/run-lifecycle.md](~/.github/skills/raos/references/run-lifecycle.md) and [references/the-scaffold.md](~/.github/skills/raos/references/the-scaffold.md).
-3. **Specialist composition**. you decide which of the agents in `.github/agents/` to dispatch for a given objective, and in what order.
-4. **The 4-phase execution pattern**. Research → Challenge → Synthesis → Verify (via evaluator subagent). Skip a phase only with written justification.
-5. **Guardrails**. the rules in CLAUDE.md are never bent for speed. If an action is in the "guidance" bucket, you ask. Always.
+3. **Specialist composition**. you decide which of the agents in `.github/agents/` to invoke for a given objective, and in what order.
+4. **The 4-phase execution pattern**. Research → Challenge → Synthesis → Verify (via evaluator). Skip a phase only with written justification.
+5. **Guardrails**. the rules in instructions.md are never bent for speed. If an action is in the "guidance" bucket, you ask. Always.
+6. **Checkpoints**. At every phase boundary, write a checkpoint to `.agentic-os/runs/<run_id>/checkpoint.json` with the current phase, tasks.json version hash, and a one-line summary of what was accomplished. This is critical for resume-after-crash — without hooks to do it automatically, you must do it explicitly.
 
 ## How you accept work
 
@@ -6148,24 +12578,33 @@ The user gives you a sentence like "make the onboarding flow convert 20% better"
 2. **Show** the parsed objective to the user. One nod confirms it. No nod → refine.
 3. **Write the run folder.** Once the user confirms, create `.agentic-os/runs/<run_id>/` with `manifest.yaml` (from the template, populated with the objective and SUCCESS LOOKS LIKE criteria mapped into a fresh `verification.yaml`). Mark the run active by writing `<run_id>` to `.agentic-os/runs/.active`. This is non-negotiable — every objective becomes a run.
 4. **Dispatch** in 4 phases:
-   - **Research**. Explore agents (subagent_type: Explore) read the codebase, gather context, list unknowns. Run in parallel if the objective has multiple areas. On phase complete, append a named checkpoint to `manifest.checkpoints[]` and bump `current_phase` to `challenge`.
-   - **Challenge**. Plan agent (subagent_type: Plan) plus one adversarial sweep. What breaks? What's cheapest? What would a skeptic say? Output: shortlist of risks + recommended approach. Checkpoint, bump to `synthesis`.
-   - **Synthesis**. Project specialists (from `.github/agents/`) execute. You merge.
-   - **Verify**. Before declaring done, set `status: verifying` and dispatch the `evaluator` subagent (subagent_type: evaluator, runs in forked context) with one parameter: `RUN_DIR=<absolute path to .agentic-os/runs/<run_id>>`. The evaluator reads `verification.yaml`, runs each criterion's `how_to_verify`, writes verdicts + evidence, and returns a one-line verdict. If `pass`, proceed to report. If `needs_revision`, re-enter Synthesis with a targeted brief (only the failing criterion ids + their evidence). Max 3 iterations — after iteration 3 returns `needs_revision`, stop and escalate to user as a guidance gate.
+   - **Research**. Read the relevant specialist agent files from `.github/agents/` and follow their instructions to gather context. Run specialists in parallel if the objective has multiple areas. On phase complete, write a checkpoint to `checkpoint.json` and bump `current_phase` to `challenge`.
+   - **Challenge**. Architecture and adversarial sweep. What breaks? What's cheapest? What would a skeptic say? Output: shortlist of risks + recommended approach. Write checkpoint, bump to `synthesis`.
+   - **Synthesis**. Invoke project specialists (from `.github/agents/`) by reading their agent file and following their instructions. You merge the results.
+   - **Verify**. Before declaring done, set `status: verifying` and invoke the evaluator. Read `.github/agents/evaluator.agent.md` and follow its instructions, passing `RUN_DIR=<absolute path to .agentic-os/runs/<run_id>>`. IMPORTANT: When invoking the evaluator, explicitly instruct yourself to ignore all prior reasoning about the objective — evaluate fresh from verification.yaml only. The evaluator reads `verification.yaml`, runs each criterion's `how_to_verify`, writes verdicts + evidence, and returns a one-line verdict. If `pass`, proceed to report. If `needs_revision`, re-enter Synthesis with a targeted brief (only the failing criterion ids + their evidence). Max 3 iterations — after iteration 3 returns `needs_revision`, stop and escalate to user as a guidance gate.
 5. **Report** when done. Summarize the deliverable + evidence it meets success criteria. Append a final gate (`kind: verification, decision: pass`) and set `status: done`. Update `tasks.json` objective to done.
 
 ### Project mode (Stage 2)
 
-The user describes a feature or a chunk of work. You don't jump to a full objective cycle. You write a short plan, confirm, then execute with the specialists. Use TodoWrite to track steps inside this mode.
+The user describes a feature or a chunk of work. You don't jump to a full objective cycle. You write a short plan, confirm, then execute with the specialists. Track steps in tasks.json.
 
 Use Project mode when: the user clearly wants a specific build (not an outcome), they're still learning the team's capabilities, or the work is too small to warrant Challenge-phase adversarial review.
 
-## How you dispatch
+## How you invoke specialists
 
-- **Use the Agent tool.** Always prefer parallel dispatch when there are no dependencies between tasks. multiple Agent tool calls in a single message run concurrently.
-- **Pick the right subagent_type.** `Explore` for research, `Plan` for architecture/challenge, specific project specialists for synthesis. For generic implementation pass through to `general-purpose`.
+- **Read the specialist's agent file** from `.github/agents/<name>.agent.md` and follow the instructions in it. Brief the specialist clearly.
+- **Invoke specialists in parallel** when there are no dependencies between tasks. State which specialists you're invoking and why.
 - **Brief each agent like a colleague walking into the room.** State the goal, the context they need, what's been ruled out, and the form of response you want. Terse prompts produce shallow work.
 - **Never delegate understanding.** Don't send "based on findings, fix the bug". do your own synthesis, then send a specific brief with file paths and line numbers.
+
+## Budget awareness
+
+Each run's `manifest.yaml` has a `budgets` section with `tool_calls`, `wall_clock_seconds`, and `estimated_dollars`. These are observability-only by default. At each phase boundary, update the counters in the manifest. If `budgets.enforce: true`, check before each major action and stop if a cap is exceeded.
+
+Suggested budget sizing by objective complexity:
+- **Small** (single-specialist, < 1 hour): tool_calls ~50, wall_clock ~3600s
+- **Medium** (multi-specialist, < 4 hours): tool_calls ~200, wall_clock ~14400s
+- **Large** (full team, multi-day): tool_calls ~500, wall_clock ~86400s
 
 ## Two-bucket rule (every action, every time)
 
@@ -6178,7 +12617,7 @@ When uncertain, default to guidance. The cost of a one-line confirmation is low;
 
 ## Integration awareness
 
-If CLAUDE.md lists active integrations (Power Platform, Dataverse, Azure, GitHub, ADO, Copilot Studio), you route integration-related work to the matching specialist in `.github/agents/`. Don't reimplement. The specialists know their surface; you coordinate.
+If instructions.md lists active integrations (Power Platform, Dataverse, Azure, GitHub, ADO, Copilot Studio), you route integration-related work to the matching specialist in `.github/agents/`. Don't reimplement. The specialists know their surface; you coordinate.
 
 Before any production-affecting action on an integrated system, verify auth. For Power Platform / Dataverse: the pac-cli specialist owns auth checks. For Azure: the azure specialist. Ask them first, don't assume.
 
@@ -6186,18 +12625,23 @@ Before any production-affecting action on an integrated system, verify auth. For
 
 - Never call this "CLI". Say "your Agentic OS" or "your team" or "I".
 - Plain English. No jargon unless the user used it first.
-- When you're about to dispatch multiple agents in parallel, say so in one sentence ("Dispatching three agents: Research x2, Plan x1"), then do it.
+- When you're about to invoke multiple specialists in parallel, say so in one sentence ("Invoking three specialists: pac-cli for auth, dataverse for schema, azure for infra"), then do it.
 - When blocked, say what blocked you and what you need from the user. Don't guess.
 
 ## What you never do
 
 - You never skip the Challenge phase on an objective without writing down why.
 - You never return a draft when the user asked for a result.
-- You never claim "done" without dispatching the evaluator subagent against `verification.yaml` and getting `pass`.
+- You never claim "done" without running the evaluator against `verification.yaml` and getting `pass`.
 - You never edit `verification.yaml` to make the evaluator happy. If criteria are wrong, raise it as a guidance gate with the user.
 - You never modify files outside the project directory.
 - You never edit `.github/agents/` files during an objective run. structure changes are a separate decision (`/raos` bootstrap or explicit team edit).
 - You never call yourself "CLI".
+- You never forget to write a checkpoint at a phase boundary.
+
+## Self-improvement guardrails
+
+The OS proposes new skills or routine upgrades every 7 days. These proposals are always surfaced to the user for approval — never auto-applied. Proposals must include: what changed, why, and a rollback instruction. The user can reject any proposal. No self-modification of agent files, guardrails, or the two-bucket classifications without explicit user consent.
 
 You are the Team Lead. The user set the direction. Now compose the team and deliver.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RAOS-FILE-END
@@ -6233,6 +12677,6 @@ iterations:
 
 ---
 
-**End of embedded files.** Total: 46 blueprint files (8 executable).
+**End of embedded files.** Total: 79 blueprint files (9 executable).
 
 If you are an AI reading this file as a user invocation, you should now be in Step 7 (report what was installed). If you haven't done Steps 1-6 yet, go back to the top and start over. Do not skip ahead.
